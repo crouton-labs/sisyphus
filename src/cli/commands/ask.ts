@@ -3,15 +3,17 @@ import { existsSync, readFileSync, watchFile, unwatchFile } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { ulid } from 'ulid';
 import { parseDeck } from '../../shared/ask-schema.js';
-import { createAsk, readMeta, updateMeta, writeDecisions } from '../../daemon/ask-store.js';
+import { createAsk, listAsks, readMeta, updateMeta, writeDecisions } from '../../daemon/ask-store.js';
 import { emitHistoryEvent } from '../../daemon/history.js';
 import { askOutputPath, statePath } from '../../shared/paths.js';
 import * as state from '../../daemon/state.js';
 import { ORCHESTRATOR_ASKED_BY } from '../../shared/types.js';
-import type { AskOutput, AskStatus } from '../../shared/types.js';
+import type { AskOutput, AskStatus, InteractionKind } from '../../shared/types.js';
 import { execSafe } from '../../shared/exec.js';
 import { shellQuote } from '../../shared/shell.js';
 import { exitUsage } from '../errors.js';
+import { approveDeck, notifyDeck, launchReview, display } from '@crouton-kit/humanloop';
+import type { Deck } from '@crouton-kit/humanloop';
 
 const ULID_RE = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 
@@ -100,6 +102,53 @@ export function registerAsk(program: Command): void {
     .description('Print {askId, status, completedAt?, output?} for <askId> without blocking')
     .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
     .action(async (askId: string, opts: { session?: string }) => peek(askId, opts));
+
+  ask
+    .command('approve <title>')
+    .description('Yes/No approval gate (blocks until answered)')
+    .option('--subtitle <s>', 'Optional one-line context shown below the title')
+    .option('--body <b>', 'Optional markdown body')
+    .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
+    .action(async (title: string, opts: { subtitle?: string; body?: string; session?: string }) => {
+      await approve(title, opts);
+    });
+
+  ask
+    .command('notify <title>')
+    .description('Fire-and-forget acknowledgement on the dashboard (non-blocking)')
+    .option('--body <b>', 'Optional markdown body')
+    .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
+    .action(async (title: string, opts: { body?: string; session?: string }) => {
+      await notify(title, opts);
+    });
+
+  ask
+    .command('review <file>')
+    .description('Anchored-comment review of a markdown file (opens editor; blocks)')
+    .option('--output <path>', 'Where to write the FeedbackResult JSON (default: .sisyphus/reviews/<ulid>.json)')
+    .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
+    .action(async (file: string, opts: { output?: string; session?: string }) => {
+      await review(file, opts);
+    });
+
+  ask
+    .command('list')
+    .description('List pending interactions for the current session')
+    .option('--limit <n>', 'Max items to return (default 20, max 100)')
+    .option('--cursor <c>', 'Opaque pagination token from a previous next_cursor')
+    .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
+    .action(async (opts: { limit?: string; cursor?: string; session?: string }) => {
+      await listPending(opts);
+    });
+
+  ask
+    .command('show <path>')
+    .description('Live-display a file in a tmux pane (passthrough to humanloop)')
+    .option('--watch', 'Live-update the pane on edits')
+    .option('--window <mode>', 'Pane placement: auto, split, or new (default auto)')
+    .action(async (path: string, opts: { watch?: boolean; window?: string }) => {
+      await show(path, opts);
+    });
 }
 
 function mintAskId(): string {
@@ -239,10 +288,51 @@ function maybeSpawnAskPane(cwd: string, sessionId: string, askId: string): void 
   execSafe(`tmux split-window -d -h -t ${shellQuote(callerPane)} -c ${shellQuote(cwd)} ${shellQuote(cmd)}`);
 }
 
-async function submit(file: string, opts: { session?: string }): Promise<void> {
+/**
+ * Core deck submission logic. Creates the ask store entry, writes decisions,
+ * optionally spawns a pane, and optionally blocks waiting for output.
+ *
+ * blocking:true (default) — waits for response, marks answered, returns output.
+ * blocking:false — creates a non-blocking ask, does NOT spawn a pane or wait.
+ */
+async function submitDeck(
+  deck: Deck,
+  opts: { session?: string },
+  options?: { blocking?: boolean; kindOverride?: InteractionKind },
+): Promise<{ askId: string; output?: AskOutput }> {
+  const blocking = options?.blocking !== false;
   const { cwd, sessionId } = resolveSessionEnv(opts);
   const askedBy = process.env.SISYPHUS_AGENT_ID ?? ORCHESTRATOR_ASKED_BY;
+  const initialPpid = process.ppid;
+  const claudeSessionId = resolveClaudeSessionId(cwd, sessionId, askedBy);
+  const askId = mintAskId();
 
+  const q0 = deck.interactions[0];
+  createAsk(cwd, sessionId, {
+    askId,
+    askedBy,
+    blocking,
+    pid: process.pid,
+    claudeSessionId,
+    cwd,
+    title: deck.title !== undefined ? deck.title : q0?.title,
+    subtitle: q0?.subtitle,
+    kind: options?.kindOverride !== undefined ? options.kindOverride : q0?.kind,
+  });
+  writeDecisions(cwd, sessionId, askId, deck);
+
+  if (!blocking) {
+    return { askId };
+  }
+
+  maybeSpawnAskPane(cwd, sessionId, askId);
+
+  const output = await waitForOutput(cwd, sessionId, askId, initialPpid);
+  await markAnswered(cwd, sessionId, askId);
+  return { askId, output };
+}
+
+async function submit(file: string, opts: { session?: string }): Promise<void> {
   const deckPath = resolve(file);
   if (!existsSync(deckPath)) {
     exitUsage('file-not-found', `deck file not found: ${deckPath}`, {
@@ -251,36 +341,175 @@ async function submit(file: string, opts: { session?: string }): Promise<void> {
     });
   }
 
-  let decisions;
+  let decisions: Deck;
   try {
     decisions = parseDeck(deckPath);
   } catch (err) {
     exitUsage('invalid-deck', (err as Error).message, { received: deckPath });
   }
 
-  const initialPpid = process.ppid;
-  const claudeSessionId = resolveClaudeSessionId(cwd, sessionId, askedBy);
-  const askId = mintAskId();
-
-  const q0 = decisions.interactions[0];
-  createAsk(cwd, sessionId, {
-    askId,
-    askedBy,
-    blocking: true,
-    pid: process.pid,
-    claudeSessionId,
-    cwd,
-    title: decisions.title !== undefined ? decisions.title : q0?.title,
-    subtitle: q0?.subtitle,
-    kind: q0?.kind,
-  });
-  writeDecisions(cwd, sessionId, askId, decisions);
-
-  maybeSpawnAskPane(cwd, sessionId, askId);
-
-  const output = await waitForOutput(cwd, sessionId, askId, initialPpid);
-  await markAnswered(cwd, sessionId, askId);
+  const { output } = await submitDeck(decisions!, opts);
   process.stdout.write(JSON.stringify(output) + '\n');
+}
+
+async function approve(
+  title: string,
+  opts: { subtitle?: string; body?: string; session?: string },
+): Promise<void> {
+  const deck = approveDeck(title, {
+    ...(opts.subtitle !== undefined ? { subtitle: opts.subtitle } : {}),
+    ...(opts.body !== undefined ? { body: opts.body } : {}),
+  });
+
+  const { askId, output } = await submitDeck(deck, opts);
+  if (!output) throw new Error('blocking ask returned no output');
+
+  const approveResponse = output.responses.find(r => r.id === 'approve');
+  const approved = approveResponse?.selectedOptionId === 'yes';
+
+  process.stdout.write(
+    JSON.stringify({
+      askId,
+      approved,
+      completedAt: output.completedAt,
+      responses: output.responses,
+    }) + '\n',
+  );
+}
+
+async function notify(title: string, opts: { body?: string; session?: string }): Promise<void> {
+  const deck = notifyDeck(title, opts.body !== undefined ? { body: opts.body } : {});
+  const { askId } = await submitDeck(deck, opts, { blocking: false, kindOverride: 'notify' });
+  process.stdout.write(JSON.stringify({ askId }) + '\n');
+}
+
+async function review(
+  file: string,
+  opts: { output?: string; session?: string },
+): Promise<void> {
+  const abs = resolve(file);
+  if (!existsSync(abs)) {
+    exitUsage('file-not-found', `file not found: ${abs}`, {
+      received: abs,
+      next: 'sis ask review <file> (provide a valid path to an existing .md file)',
+    });
+  }
+  if (!abs.endsWith('.md')) {
+    exitUsage('invalid-file', `review requires a .md file: ${abs}`, {
+      received: abs,
+      next: 'sis ask review <file> (file must end in .md)',
+    });
+  }
+
+  const { cwd } = resolveSessionEnv(opts);
+  const outputPath =
+    opts.output !== undefined
+      ? resolve(opts.output)
+      : join(cwd, '.sisyphus', 'reviews', `${ulid()}.json`);
+
+  const result = await launchReview(abs, { output: outputPath });
+  const commentCount = Array.isArray(result.comments) ? result.comments.length : 0;
+  process.stdout.write(JSON.stringify({ output: outputPath, comments: commentCount }) + '\n');
+}
+
+async function listPending(opts: {
+  limit?: string;
+  cursor?: string;
+  session?: string;
+}): Promise<void> {
+  const { cwd, sessionId } = resolveSessionEnv(opts);
+
+  const limitParsed = opts.limit !== undefined ? parseInt(opts.limit, 10) : 20;
+  if (opts.limit !== undefined && (isNaN(limitParsed) || limitParsed < 1)) {
+    exitUsage('invalid-limit', `--limit must be a positive integer, got: ${opts.limit}`, {
+      received: opts.limit,
+      next: 'sis ask list --limit <n> (1-100)',
+    });
+  }
+  const limit = Math.min(limitParsed, 100);
+  const cursorParsed = opts.cursor !== undefined ? parseInt(opts.cursor, 10) : 0;
+  if (opts.cursor !== undefined && isNaN(cursorParsed)) {
+    exitUsage('invalid-cursor', `--cursor must be a numeric token, got: ${opts.cursor}`, {
+      received: opts.cursor,
+      next: 'Pass the next_cursor value from a previous sis ask list response',
+    });
+  }
+  const cursorOffset = cursorParsed;
+
+  const allAskIds = listAsks(cwd, sessionId);
+  const pending: Array<{
+    askId: string;
+    title?: string;
+    kind?: string;
+    askedAt: string;
+    blocking: boolean;
+    askedBy: string;
+  }> = [];
+
+  for (const askId of allAskIds) {
+    const meta = readMeta(cwd, sessionId, askId);
+    if (!meta) continue;
+    if (meta.orphaned) continue;
+    if (meta.status !== 'pending' && meta.status !== 'in-progress') continue;
+    if (existsSync(askOutputPath(cwd, sessionId, askId))) continue;
+    pending.push({
+      askId,
+      ...(meta.title !== undefined ? { title: meta.title } : {}),
+      ...(meta.kind !== undefined ? { kind: meta.kind } : {}),
+      askedAt: meta.askedAt,
+      blocking: meta.blocking,
+      askedBy: meta.askedBy,
+    });
+  }
+
+  // Sort oldest first
+  pending.sort((a, b) => (a.askedAt < b.askedAt ? -1 : a.askedAt > b.askedAt ? 1 : 0));
+
+  const total = pending.length;
+  const start = Math.min(cursorOffset, total);
+  const page = pending.slice(start, start + limit);
+  const nextStart = start + page.length;
+  const next_cursor = nextStart < total ? String(nextStart) : null;
+
+  process.stdout.write(
+    JSON.stringify({ items: page, next_cursor, total }) + '\n',
+  );
+}
+
+async function show(
+  path: string,
+  opts: { watch?: boolean; window?: string },
+): Promise<void> {
+  const rawWindow = opts.window;
+  if (rawWindow !== undefined && rawWindow !== 'auto' && rawWindow !== 'split' && rawWindow !== 'new') {
+    exitUsage('invalid-window', `--window must be auto, split, or new, got: ${rawWindow}`, {
+      received: rawWindow,
+      next: 'sis ask show <path> --window auto|split|new',
+    });
+  }
+  const windowOpt: 'auto' | 'split' | 'new' = rawWindow !== undefined ? rawWindow as 'auto' | 'split' | 'new' : 'auto';
+  const watch = opts.watch === true;
+
+  let paneId: string | undefined;
+  try {
+    const r = display(path, { watch, window: windowOpt });
+    paneId = r.paneId;
+  } catch (err) {
+    // display failures degrade gracefully — never fail the caller (matches crtr human show semantics).
+    // Log to stderr so the error is visible but doesn't corrupt stdout JSON.
+    process.stderr.write(`[sis ask show] display error: ${(err as Error).message}\n`);
+    paneId = undefined;
+  }
+
+  if (paneId !== undefined) {
+    process.stdout.write(JSON.stringify({ pane_id: paneId, reason: null }) + '\n');
+    return;
+  }
+
+  const inTmux = Boolean(process.env.TMUX);
+  const reason = inTmux ? 'renderer unavailable (termrender/uv missing)' : 'not in tmux';
+  process.stdout.write(JSON.stringify({ pane_id: null, reason }) + '\n');
+  process.exit(0);
 }
 
 async function poll(askId: string, opts: { session?: string }): Promise<void> {
