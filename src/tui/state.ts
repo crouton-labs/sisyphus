@@ -246,6 +246,9 @@ export interface AppState {
   inlineDeck: import('./panels/mounted-humanloop.js').MountedResolutionHandle | null;
   visuals: Map<string, import('./panels/mounted-humanloop.js').VisualEntry>;
 
+  // Review panel — mounted in place of inlineDeck when focused inbox item is kind='review'
+  reviewPanel: import('./panels/review-action.js').ReviewActionPanel | null;
+
   // Config
   cwd: string;
 }
@@ -324,6 +327,7 @@ export function createAppState(cwd: string): AppState {
     resolutionHandle: null,
     inlineDeck: null,
     visuals: new Map(),
+    reviewPanel: null,
     cwd,
   };
 }

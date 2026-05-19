@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import {
-  askDecisionsPath, askDir, askMetaPath, askOutputPath, askProgressPath, askVisualsDir,
+  askDecisionsPath, askDir, askMetaPath, askOutputPath, askProgressPath, askReviewPath, askVisualsDir,
 } from '../shared/paths.js';
-import type { AskMeta, AskStatus, Deck, InteractionKind, InteractionResponse } from '../shared/types.js';
+import type { AskMeta, AskStatus, Deck, FeedbackResult, InteractionKind, InteractionResponse } from '../shared/types.js';
 import { loadConfig } from '../shared/config.js';
 import { emitHistoryEvent } from './history.js';
 import { isSessionDangerous } from './state.js';
@@ -11,7 +11,7 @@ import { sendTerminalNotification } from './notify.js';
 import * as state from './state.js';
 
 const ACTIONABLE_KINDS: ReadonlySet<InteractionKind> = new Set([
-  'validation', 'decision', 'context', 'error',
+  'validation', 'decision', 'context', 'error', 'review',
 ]);
 
 const HEARTBEAT_ASKED_BY = 'system:heartbeat';
@@ -129,6 +129,29 @@ export function writeOutput(
 ): void {
   atomicWrite(askOutputPath(cwd, sessionId, askId), JSON.stringify({
     responses,
+    completedAt: completedAt ?? new Date().toISOString(),
+  }, null, 2));
+}
+
+export function writeReview(cwd: string, sessionId: string, askId: string, params: { file: string }): void {
+  atomicWrite(askReviewPath(cwd, sessionId, askId), JSON.stringify({ file: params.file }, null, 2));
+}
+
+export function readReview(cwd: string, sessionId: string, askId: string): { file: string } | null {
+  const p = askReviewPath(cwd, sessionId, askId);
+  try {
+    return JSON.parse(readFileSync(p, 'utf-8')) as { file: string };
+  } catch {
+    return null;
+  }
+}
+
+export function writeReviewOutput(
+  cwd: string, sessionId: string, askId: string, feedback: FeedbackResult, completedAt?: string,
+): void {
+  atomicWrite(askOutputPath(cwd, sessionId, askId), JSON.stringify({
+    kind: 'review',
+    feedback,
     completedAt: completedAt ?? new Date().toISOString(),
   }, null, 2));
 }
@@ -269,6 +292,9 @@ async function maybeAutoResolveAsk(
     // emitOrphanAsk's dedup and causes a notification flood every monitor tick
     // while the orchestrator stays gone.
     if (deck.source?.askedBy === ORPHAN_ASKED_BY) return;
+    // Review asks have no deck options to auto-select; skip entirely.
+    const meta = readMeta(cwd, sessionId, askId);
+    if (meta?.kind === 'review') return;
     await autoResolveAsk(cwd, sessionId, askId, deck);
   } catch {
     // never roll back the deck write

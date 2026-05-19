@@ -168,6 +168,18 @@ export function askProgressPath(cwd: string, sessionId: string, askId: string): 
   return join(askEntryDir(cwd, sessionId, askId), 'progress.json');
 }
 
+export function askReviewPath(cwd: string, sessionId: string, askId: string): string {
+  return join(askEntryDir(cwd, sessionId, askId), 'review.json');
+}
+
+export function askReviewDraftPath(cwd: string, sessionId: string, askId: string): string {
+  return join(askEntryDir(cwd, sessionId, askId), 'draft.json');
+}
+
+export function askReviewSubmitFlagPath(cwd: string, sessionId: string, askId: string): string {
+  return join(askEntryDir(cwd, sessionId, askId), 'submitted');
+}
+
 export function askVisualsDir(cwd: string, sessionId: string, askId: string): string {
   return join(askEntryDir(cwd, sessionId, askId), 'visuals');
 }

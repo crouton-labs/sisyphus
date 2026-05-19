@@ -1,11 +1,11 @@
 import type { Command } from 'commander';
-import { existsSync, readFileSync, watchFile, unwatchFile } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, readFileSync, unlinkSync, watchFile, unwatchFile } from 'node:fs';
+import { basename, join, resolve } from 'node:path';
 import { ulid } from 'ulid';
 import { parseDeck } from '../../shared/ask-schema.js';
-import { createAsk, listAsks, readMeta, updateMeta, writeDecisions } from '../../daemon/ask-store.js';
+import { createAsk, listAsks, readMeta, readReview, updateMeta, writeDecisions, writeReview, writeReviewOutput } from '../../daemon/ask-store.js';
 import { emitHistoryEvent } from '../../daemon/history.js';
-import { askOutputPath, statePath } from '../../shared/paths.js';
+import { askOutputPath, askReviewDraftPath, askReviewSubmitFlagPath, statePath } from '../../shared/paths.js';
 import * as state from '../../daemon/state.js';
 import { ORCHESTRATOR_ASKED_BY } from '../../shared/types.js';
 import type { AskOutput, AskStatus, InteractionKind } from '../../shared/types.js';
@@ -13,7 +13,7 @@ import { execSafe } from '../../shared/exec.js';
 import { shellQuote } from '../../shared/shell.js';
 import { exitUsage } from '../errors.js';
 import { approveDeck, notifyDeck, launchReview, display } from '@crouton-kit/humanloop';
-import type { Deck } from '@crouton-kit/humanloop';
+import type { Deck, FeedbackComment, FeedbackResult } from '@crouton-kit/humanloop';
 
 const ULID_RE = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 
@@ -26,89 +26,227 @@ function validateAskId(askId: string): void {
   }
 }
 
-const DECK_SCHEMA_HELP = `
-Posts a deck of questions to the user's dashboard inbox. They walk through it and you read the structured JSON back from stdout.
+const ROOT_HELP = `
+\`sis ask\` is the single surface for user engagement. Every question, gate, notification, or document hand-off goes through here. Engagement is expensive — resolve what you can resolve yourself (read code, spawn exploration agents, run tools) before reaching for these leaves. A typical session has a handful of asks, not a stream.
 
-The CLI always blocks until the user answers (which can take 10+ minutes).
+Pick the leaf by the shape of the engagement:
 
-- **Orchestrator:** invoke synchronously so the orchestrator's pane stays alive while the bash blocks. Daemon refuses \`sis orch yield\` while orchestrator owns a pending deck; foreground is the supported pattern.
-- **Agents / one-off Claude Code sessions:** invoke through the Bash tool with \`run_in_background: true\` and end your turn — the bash completion notification wakes you with stdout ready to parse.
+  deck submit FILE   Pose 1+ questions with named alternatives (and optional freetext).
+                     The general-purpose surface — when in doubt, use this.
+  approve TITLE      Yes/no gate on a single concrete action. Blocks.
+  notify TITLE       FYI; no answer expected. Non-blocking.
+  review FILE        Line-by-line markdown annotation in the user's editor. Blocks.
+  state {poll,peek,list}
+                     Inspect existing ask state (recovery only — not the normal path).
+  show PATH          Display a file in a tmux pane. No response captured.
 
-For guidance on when to use a deck, how to design options the user can actually choose between, and how to bundle related questions into one deck, read the \`humanloop\` skill before authoring.
+I/O contract: every leaf emits one line of JSON on stdout (schema in each leaf's -h). Stderr is diagnostics only; never the result. Set --json to suppress prose diagnostics when piping; it is forced when stdout is not a TTY.
+`;
+
+const DECK_HELP = `
+Structured option decks — the primary surface for user decisions. A deck is one or more interactions, each posing a titled question with 2–4 mutually-exclusive named options and an optional freetext channel.
+
+Use a deck when:
+- Picking between concrete alternatives with meaningful tradeoffs.
+- Bundling 2+ related questions into one user context-switch.
+- Surfacing work for sign-off (a design, plan, completion summary).
+- The user may sit on it across cycles — decks survive yields; pane chat does not.
+
+For a freetext-primary question, write a single-interaction deck with one option ("acknowledge") and \`allowFreetext: true\` with a clear \`freetextLabel\`. Freetext-as-primary is rare; usually you want named options grounded in evidence.
+
+Leaves
+  submit <file>   Submit a deck JSON file. Blocks until the user resolves it.
+`;
+
+const DECK_SUBMIT_HELP = `
+Submits a deck of structured questions to the user's dashboard inbox. Always blocks until the user resolves every interaction (often minutes; can be 10+).
+
+DECK DESIGN
+
+  Each interaction asks one thing. When two questions interact, give them separate id/title/options inside the same deck.
+
+  Each option is a concrete forward path. The user picks an option to commit to a direction; each label must name a real path with its tradeoffs spelled out, grounded in *this* codebase or *this* exploration. Reference specifics — file names, framework constraints, prior decisions — not generic descriptions.
+
+  Bound option count to 2–4 per interaction.
+    < 2: collapses to yes/no — use \`sis ask approve\` instead.
+    > 4: too granular for the user to weigh — split into two interactions or cut weak options.
+
+  Options must be mutually exclusive forward paths. Reject feeling-based prompts ("Happy with this?") and fallback-to-freetext options ("Comment", "Maybe"). If "Reject" is a real path, name what rejecting routes to (back to design? abandon? try a different framing?).
+
+  \`allowFreetext: true\` is a safety valve for context the options didn't anticipate, not the primary input channel. When freetext is the primary answer, the deck has one option ("acknowledge") and a clear \`freetextLabel\`.
+
+  Bundle related questions into one deck. One deck with multiple interactions is one context switch for the user; two decks is two.
+
+  Investigate before authoring. If you can settle the question by reading code, running a tool, or spawning an exploration agent, do that first. Asking should expose options grounded in evidence, not punt the investigation.
+
+INVOCATION
+
+  Orchestrator: invoke synchronously and let the Bash tool block. The daemon refuses \`sis orch yield\` while you own a pending deck; foreground is the supported pattern. Yielding while a deck is pending kills the pane and any in-flight bash with it, producing a polling loop.
+
+  Agent / one-off Claude Code session: invoke through the Bash tool with \`run_in_background: true\` and end your turn. The bash completion notification wakes you with stdout ready to parse. Do not peek, poll, or narrate while you wait.
+
+  Respawn recovery only: if you wake to a pending deck on disk (daemon restart, mid-wait crash), re-attach with \`sis ask state poll <askId>\` (blocking) or \`sis ask state peek <askId>\` (non-blocking diagnostics). Never poll a deck you submitted in the current turn — the bash completion is the only signal you need.
 
 DECK JSON SCHEMA
+
   { "title"?: string, "interactions": Interaction[] }    // interactions[] non-empty
 
   Interaction:
     id              string, /^[A-Za-z0-9_-]+$/, max 64 chars, unique within deck
-    title           string (required, non-empty)
-    subtitle?       string
-    body?           string                    // markdown rendered in dashboard
-    bodyPath?       string                    // path RELATIVE to the deck JSON's directory
-                                              // and must resolve INSIDE that directory
-                                              // (no '..', no symlinks out, no absolute
-                                              // paths pointing elsewhere). Mutually
-                                              // exclusive with 'body'. To use bodyPath,
-                                              // write the deck JSON next to the markdown
-                                              // file (e.g. both in
-                                              // \$SISYPHUS_SESSION_DIR/context/) and pass
-                                              // a basename like "summary.md".
-    kind?           "notify" | "validation" | "decision" | "context" | "error"
-                                              // display hint for inbox icon/sort weight.
-                                              // No other values accepted.
-    options         Option[]                  // 2–4 options recommended (see humanloop)
+    title           string (required, non-empty)         // ask the actual decision
+    subtitle?       string                               // one-line context
+    body?           string                               // markdown rendered in dashboard
+    bodyPath?       string                               // path RELATIVE to the deck JSON's
+                                                         // directory and must resolve INSIDE
+                                                         // that directory (no '..', no
+                                                         // symlinks out, no absolute paths
+                                                         // pointing elsewhere). Mutually
+                                                         // exclusive with 'body'. To use
+                                                         // bodyPath, write the deck JSON next
+                                                         // to the markdown file (e.g. both in
+                                                         // \$SISYPHUS_SESSION_DIR/context/)
+                                                         // and pass a basename like
+                                                         // "summary.md".
+    kind?           "decision" | "validation" | "context" | "error" | "notify"
+                                                         // display hint for inbox icon/sort:
+                                                         //   decision   — fork in the road
+                                                         //   validation — sign-off on work
+                                                         //   context    — background needing response
+                                                         //   error      — recovery picker
+                                                         //   notify     — use the \`notify\` leaf instead
+    options         Option[]                             // 2–4 entries; single-option only
+                                                         // valid with allowFreetext: true
+                                                         // and a freetext-primary framing
     allowFreetext?  boolean
-    freetextLabel?  string
+    freetextLabel?  string                               // required if allowFreetext is the
+                                                         // primary channel — name the input
 
   Option:
     id              string (required)
-    label           string (required)
-    description?    string
+    label           string (required)                    // concrete path, not a feeling
+    description?    string                               // spell out the tradeoff
     shortcut?       string
 
 OUTPUT
-  On answer, stdout is one line of JSON:
+
+  stdout (one line of JSON):
     { "responses": [{ "id", "selectedOptionId"?, "freetext"? }, ...], "completedAt" }
+
   Branch on each response by its interaction \`id\`.
 
-Validation errors at submit are precise — read them, don't guess.
+ERRORS
+
+  Validation errors at submit are precise — they name what was received and what was expected. Read them, don't guess.
+`;
+
+const APPROVE_HELP = `
+Single yes/no gate. Blocks until the user picks. Returns { askId, approved, completedAt, responses }.
+
+Use when the next step is reversible and proceeding needs explicit user consent — a destructive command, a network call with side effects, a state-changing migration. The \`--body\` should describe the concrete action in enough detail that the user can judge it without a follow-up question.
+
+When the answer is "yes, but also tell me X" or "no, and here's why" matters, use \`sis ask deck submit\` instead — approve doesn't capture nuance.
+
+Same blocking semantics as \`sis ask deck submit\`: orchestrator runs foreground, agent uses run_in_background.
+`;
+
+const NOTIFY_HELP = `
+Fire-and-forget acknowledgement. Non-blocking — returns immediately with { askId } before the user sees it.
+
+Use when the user should know about something (a milestone hit, a finding surfaced, a heads-up before a long-running step) but no answer is needed.
+
+When even a minimal answer matters, use \`sis ask approve\`. When picking between paths matters, use \`sis ask deck submit\`. Notifications do not have a return path.
+`;
+
+const REVIEW_HELP = `
+A review is a markdown-file review with line-anchored comments.
+
+The agent submits the file; the human opens it in a clean nvim/vim session from
+the dashboard inbox (90% tmux popup), adds anchored comments with <Space>c, and
+submits with <Space>s or via the dashboard "Submit" action. Multiple open/close
+cycles are supported — the draft persists until explicitly submitted.
+
+Use when surfacing a document (design, plan, spec, completion summary) the user should annotate per-line rather than pick options on. For a global yes/no, use \`sis ask approve\`. For named alternatives, use \`sis ask deck submit\`.
+
+Input: <file> must exist and end in \`.md\`.
+
+Output (on submit):
+  { askId, file, output: { kind: 'review', feedback: { ... }, completedAt } }
+
+FeedbackResult fields: file, submitted, approved, comments[{ line, endLine, lineText, quote?, colStart?, colEnd?, comment, createdAt }], submittedAt, savedAt.
+`;
+
+const STATE_HELP = `
+Inspect ask state for the current session. Pure reads — no submission, no writes.
+
+Normal flow: when you submit an ask in the current turn, the bash completion delivers stdout — no \`state\` calls needed. Reach for these only on recovery.
+
+Leaves
+  poll <askId>   Block on a known askId.    | use when respawning into a session with a pending ask owned by you
+  peek <askId>   Non-blocking status read.  | use when checking status without committing to wait
+  list           Pending asks for session.  | use when recovering from a daemon restart or auditing open asks
+`;
+
+const STATE_POLL_HELP = `
+Block until <askId> resolves, then print the same { responses, completedAt } JSON that \`deck submit\` would return.
+
+Recovery-only. If you respawn and find an ask on disk owned by you with status pending or in-progress, poll re-attaches. Never poll an ask you submitted in the current turn — wait for the original bash to complete.
+`;
+
+const STATE_PEEK_HELP = `
+Print { askId, status, completedAt?, output? } for <askId> without blocking. Status is one of: pending | in-progress | answered | not-found.
+
+Diagnostics surface. Use to decide whether to poll or to skip an orphaned ask. Returns immediately.
+`;
+
+const STATE_LIST_HELP = `
+List pending and in-progress asks for the current session, oldest first.
+
+Output: { items: [{askId, title?, kind?, askedAt, blocking, askedBy}], next_cursor, total }
+
+Sorted by askedAt ascending. Pagination is cursor-based: pass the previous response's \`next_cursor\` to the next call; null means end of list. \`total\` is the count across all pages.
+`;
+
+const SHOW_HELP = `
+Live-display a file in a tmux pane (passthrough to humanloop's renderer). No response captured.
+
+Use to surface context the user should glance at while you work — a generated diagram, a status report, a diff. For documents the user should annotate, use \`sis ask review\` instead.
+
+Degrades gracefully outside tmux: returns { pane_id: null, reason } and exits 0.
 `;
 
 export function registerAsk(program: Command): void {
   const ask = program
     .command('ask')
-    .description('Submit a structured question deck for the user to answer (blocks until answered)')
+    .description('Surface a question, gate, notification, or document to the user')
+    .addHelpText('after', ROOT_HELP)
     .action(() => {
       ask.help();
     });
 
-  ask
+  const deck = ask
+    .command('deck')
+    .description('Structured option decks (the primary surface for user decisions)')
+    .addHelpText('after', DECK_HELP)
+    .action(() => {
+      deck.help();
+    });
+
+  deck
     .command('submit <file>')
-    .description('Submit a deck JSON file and block until the user answers')
+    .description('Submit a deck JSON file; blocks until the user resolves it')
     .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
-    .addHelpText('after', DECK_SCHEMA_HELP)
+    .addHelpText('after', DECK_SUBMIT_HELP)
     .action(async (file: string, opts: { session?: string }) => {
       await submit(file, opts);
     });
 
   ask
-    .command('poll <askId>')
-    .description('Block until <askId> is answered, then print output JSON')
-    .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
-    .action(async (askId: string, opts: { session?: string }) => poll(askId, opts));
-
-  ask
-    .command('peek <askId>')
-    .description('Print {askId, status, completedAt?, output?} for <askId> without blocking')
-    .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
-    .action(async (askId: string, opts: { session?: string }) => peek(askId, opts));
-
-  ask
     .command('approve <title>')
-    .description('Yes/No approval gate (blocks until answered)')
+    .description('Yes/no gate on a single concrete action; blocks until answered')
     .option('--subtitle <s>', 'Optional one-line context shown below the title')
-    .option('--body <b>', 'Optional markdown body')
+    .option('--body <b>', 'Markdown body describing the action the user is approving')
     .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
+    .addHelpText('after', APPROVE_HELP)
     .action(async (title: string, opts: { subtitle?: string; body?: string; session?: string }) => {
       await approve(title, opts);
     });
@@ -118,34 +256,75 @@ export function registerAsk(program: Command): void {
     .description('Fire-and-forget acknowledgement on the dashboard (non-blocking)')
     .option('--body <b>', 'Optional markdown body')
     .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
+    .addHelpText('after', NOTIFY_HELP)
     .action(async (title: string, opts: { body?: string; session?: string }) => {
       await notify(title, opts);
     });
 
   ask
     .command('review <file>')
-    .description('Anchored-comment review of a markdown file (opens editor; blocks)')
-    .option('--output <path>', 'Where to write the FeedbackResult JSON (default: .sisyphus/reviews/<ulid>.json)')
+    .description('Anchored-comment review of a markdown file; blocks until the user submits')
     .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
-    .action(async (file: string, opts: { output?: string; session?: string }) => {
+    .addHelpText('after', REVIEW_HELP)
+    .action(async (file: string, opts: { session?: string }) => {
       await review(file, opts);
     });
 
   ask
+    .command('review-open <askId>')
+    .description('Open a pending review in the current terminal (used internally by the dashboard popup)')
+    .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
+    .action(async (askId: string, opts: { session?: string }) => {
+      await reviewOpen(askId, opts);
+    });
+
+  ask
+    .command('review-submit <askId>')
+    .description('Finalize a pending review using the current draft (no editor)')
+    .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
+    .action(async (askId: string, opts: { session?: string }) => {
+      await reviewSubmit(askId, opts);
+    });
+
+  const stateCmd = ask
+    .command('state')
+    .description('Inspect existing ask state (recovery only — not the normal path)')
+    .addHelpText('after', STATE_HELP)
+    .action(() => {
+      stateCmd.help();
+    });
+
+  stateCmd
+    .command('poll <askId>')
+    .description('Block until <askId> is answered, then print output JSON')
+    .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
+    .addHelpText('after', STATE_POLL_HELP)
+    .action(async (askId: string, opts: { session?: string }) => poll(askId, opts));
+
+  stateCmd
+    .command('peek <askId>')
+    .description('Print {askId, status, completedAt?, output?} for <askId> without blocking')
+    .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
+    .addHelpText('after', STATE_PEEK_HELP)
+    .action(async (askId: string, opts: { session?: string }) => peek(askId, opts));
+
+  stateCmd
     .command('list')
-    .description('List pending interactions for the current session')
+    .description('List pending and in-progress asks for the current session')
     .option('--limit <n>', 'Max items to return (default 20, max 100)')
     .option('--cursor <c>', 'Opaque pagination token from a previous next_cursor')
     .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
+    .addHelpText('after', STATE_LIST_HELP)
     .action(async (opts: { limit?: string; cursor?: string; session?: string }) => {
       await listPending(opts);
     });
 
   ask
     .command('show <path>')
-    .description('Live-display a file in a tmux pane (passthrough to humanloop)')
+    .description('Live-display a file in a tmux pane (no response captured)')
     .option('--watch', 'Live-update the pane on edits')
     .option('--window <mode>', 'Pane placement: auto, split, or new (default auto)')
+    .addHelpText('after', SHOW_HELP)
     .action(async (path: string, opts: { watch?: boolean; window?: string }) => {
       await show(path, opts);
     });
@@ -170,7 +349,7 @@ function resolveSessionEnv(opts: { session?: string }): { cwd: string; sessionId
   const cwd = process.env.SISYPHUS_CWD ?? process.cwd();
   if (!sessionId) {
     exitUsage('missing-session', 'provide --session or set SISYPHUS_SESSION_ID', {
-      next: 'sis ask submit <file> --session <id>',
+      next: 'sis ask deck submit <file> --session <id>',
     });
   }
   return { cwd, sessionId };
@@ -274,7 +453,8 @@ function waitForOutput(cwd: string, sessionId: string, askId: string, initialPpi
  * dashboard is still a valid answering surface, so we never want to break the
  * ask itself for a UX nicety).
  */
-function maybeSpawnAskPane(cwd: string, sessionId: string, askId: string): void {
+function maybeSpawnAskPane(cwd: string, sessionId: string, askId: string, kind?: InteractionKind): void {
+  if (kind === 'review') return; // reviews surface in dashboard only
   const callerPane = process.env.TMUX_PANE;
   if (!callerPane) return;
   if (process.env.SISYPHUS_DISABLE_ASK_PANE === '1') return;
@@ -325,7 +505,7 @@ async function submitDeck(
     return { askId };
   }
 
-  maybeSpawnAskPane(cwd, sessionId, askId);
+  maybeSpawnAskPane(cwd, sessionId, askId, q0?.kind);
 
   const output = await waitForOutput(cwd, sessionId, askId, initialPpid);
   await markAnswered(cwd, sessionId, askId);
@@ -337,7 +517,7 @@ async function submit(file: string, opts: { session?: string }): Promise<void> {
   if (!existsSync(deckPath)) {
     exitUsage('file-not-found', `deck file not found: ${deckPath}`, {
       received: deckPath,
-      next: 'sis ask submit <file> (provide a valid path to a deck JSON)',
+      next: 'sis ask deck submit <file> (provide a valid path to a deck JSON)',
     });
   }
 
@@ -363,6 +543,7 @@ async function approve(
 
   const { askId, output } = await submitDeck(deck, opts);
   if (!output) throw new Error('blocking ask returned no output');
+  if (output.kind === 'review') throw new Error('approve returned review output — internal error');
 
   const approveResponse = output.responses.find(r => r.id === 'approve');
   const approved = approveResponse?.selectedOptionId === 'yes';
@@ -383,10 +564,38 @@ async function notify(title: string, opts: { body?: string; session?: string }):
   process.stdout.write(JSON.stringify({ askId }) + '\n');
 }
 
-async function review(
-  file: string,
-  opts: { output?: string; session?: string },
-): Promise<void> {
+async function submitReview(
+  absFile: string,
+  opts: { session?: string },
+  options?: { blocking?: boolean },
+): Promise<{ askId: string; output?: AskOutput }> {
+  const blocking = options?.blocking !== false;
+  const { cwd, sessionId } = resolveSessionEnv(opts);
+  const askedBy = process.env.SISYPHUS_AGENT_ID ?? ORCHESTRATOR_ASKED_BY;
+  const initialPpid = process.ppid;
+  const claudeSessionId = resolveClaudeSessionId(cwd, sessionId, askedBy);
+  const askId = mintAskId();
+
+  createAsk(cwd, sessionId, {
+    askId,
+    askedBy,
+    blocking,
+    pid: process.pid,
+    claudeSessionId,
+    cwd,
+    title: `Review ${basename(absFile)}`,
+    kind: 'review',
+  });
+  writeReview(cwd, sessionId, askId, { file: absFile });
+
+  if (!blocking) return { askId };
+
+  const output = await waitForOutput(cwd, sessionId, askId, initialPpid);
+  await markAnswered(cwd, sessionId, askId);
+  return { askId, output };
+}
+
+async function review(file: string, opts: { session?: string }): Promise<void> {
   const abs = resolve(file);
   if (!existsSync(abs)) {
     exitUsage('file-not-found', `file not found: ${abs}`, {
@@ -400,16 +609,71 @@ async function review(
       next: 'sis ask review <file> (file must end in .md)',
     });
   }
+  const { askId, output } = await submitReview(abs, opts);
+  process.stdout.write(JSON.stringify({ askId, file: abs, output }) + '\n');
+}
 
-  const { cwd } = resolveSessionEnv(opts);
-  const outputPath =
-    opts.output !== undefined
-      ? resolve(opts.output)
-      : join(cwd, '.sisyphus', 'reviews', `${ulid()}.json`);
+async function reviewOpen(askId: string, opts: { session?: string }): Promise<void> {
+  validateAskId(askId);
+  const { cwd, sessionId } = resolveSessionEnv(opts);
+  const meta = readMeta(cwd, sessionId, askId);
+  if (!meta) exitUsage('not-found', `askId not found: ${askId}`, { received: askId });
+  if (meta.kind !== 'review') exitUsage('not-a-review', `askId ${askId} is not a review`, { received: meta.kind });
 
-  const result = await launchReview(abs, { output: outputPath });
-  const commentCount = Array.isArray(result.comments) ? result.comments.length : 0;
-  process.stdout.write(JSON.stringify({ output: outputPath, comments: commentCount }) + '\n');
+  const reviewData = readReview(cwd, sessionId, askId);
+  if (!reviewData) exitUsage('missing-review-pointer', `review.json missing for ${askId}`, { received: askId });
+
+  const draftPath = askReviewDraftPath(cwd, sessionId, askId);
+  const flagPath = askReviewSubmitFlagPath(cwd, sessionId, askId);
+
+  // Clean stale flag from any prior run; flag presence is the explicit-submit signal.
+  if (existsSync(flagPath)) unlinkSync(flagPath);
+
+  const result = await launchReview(reviewData.file, {
+    output: draftPath,
+    submitFlagPath: flagPath,
+    noTmux: true, // we're already inside the dashboard's tmux popup
+  });
+
+  if (result.submitted) {
+    writeReviewOutput(cwd, sessionId, askId, result);
+    process.stdout.write(JSON.stringify({ askId, submitted: true, comments: result.comments.length }) + '\n');
+  } else {
+    process.stdout.write(JSON.stringify({ askId, submitted: false, comments: result.comments.length }) + '\n');
+  }
+}
+
+async function reviewSubmit(askId: string, opts: { session?: string }): Promise<void> {
+  validateAskId(askId);
+  const { cwd, sessionId } = resolveSessionEnv(opts);
+  const meta = readMeta(cwd, sessionId, askId);
+  if (!meta) exitUsage('not-found', `askId not found: ${askId}`, { received: askId });
+  if (meta.kind !== 'review') exitUsage('not-a-review', `askId ${askId} is not a review`, { received: meta.kind });
+
+  const reviewData = readReview(cwd, sessionId, askId);
+  if (!reviewData) exitUsage('missing-review-pointer', `review.json missing for ${askId}`, { received: askId });
+
+  const draftPath = askReviewDraftPath(cwd, sessionId, askId);
+  let comments: FeedbackComment[] = [];
+  if (existsSync(draftPath)) {
+    try {
+      const draft = JSON.parse(readFileSync(draftPath, 'utf-8')) as { comments?: unknown };
+      if (Array.isArray(draft.comments)) comments = draft.comments as FeedbackComment[];
+    } catch {
+      // unreadable draft — submit with 0 comments
+    }
+  }
+  const now = new Date().toISOString();
+  const feedback: FeedbackResult = {
+    file: reviewData.file,
+    submitted: true,
+    approved: comments.length === 0,
+    comments,
+    submittedAt: now,
+    savedAt: now,
+  };
+  writeReviewOutput(cwd, sessionId, askId, feedback);
+  process.stdout.write(JSON.stringify({ askId, submitted: true, comments: comments.length }) + '\n');
 }
 
 async function listPending(opts: {
@@ -423,7 +687,7 @@ async function listPending(opts: {
   if (opts.limit !== undefined && (isNaN(limitParsed) || limitParsed < 1)) {
     exitUsage('invalid-limit', `--limit must be a positive integer, got: ${opts.limit}`, {
       received: opts.limit,
-      next: 'sis ask list --limit <n> (1-100)',
+      next: 'sis ask state list --limit <n> (1-100)',
     });
   }
   const limit = Math.min(limitParsed, 100);
@@ -431,7 +695,7 @@ async function listPending(opts: {
   if (opts.cursor !== undefined && isNaN(cursorParsed)) {
     exitUsage('invalid-cursor', `--cursor must be a numeric token, got: ${opts.cursor}`, {
       received: opts.cursor,
-      next: 'Pass the next_cursor value from a previous sis ask list response',
+      next: 'Pass the next_cursor value from a previous sis ask state list response',
     });
   }
   const cursorOffset = cursorParsed;

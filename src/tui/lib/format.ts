@@ -145,6 +145,7 @@ export const KIND_ICON: Record<string, string> = {
   decision: '◆',
   context: '✎',
   error: '⚠',
+  review: '◈',
 };
 export const KIND_COLOR: Record<string, string> = {
   notify: 'gray',
@@ -152,6 +153,7 @@ export const KIND_COLOR: Record<string, string> = {
   decision: 'cyan',
   context: 'cyan',
   error: 'red',
+  review: 'magenta',
 };
 
 export function kindIcon(kind: string | undefined): string {

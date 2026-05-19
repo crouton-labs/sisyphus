@@ -1,4 +1,5 @@
 import stringWidth from 'string-width';
+import { readFileSync } from 'node:fs';
 import { clipAnsi, type Rect } from '../render.js';
 import { type AppState, requestRender } from '../state.js';
 import { send } from '../lib/client.js';
@@ -9,6 +10,9 @@ import {
   type MountedResolutionHandle,
 } from './mounted-humanloop.js';
 import { kindIcon, kindColor, formatTimeAgo, truncate, ansiDim, ansiColor } from '../lib/format.js';
+import { cwdFromDir, sessionIdFromDir, askIdFromDir } from '../../shared/inbox-types.js';
+import { askReviewDraftPath, askReviewPath } from '../../shared/paths.js';
+import { mountReviewActionPanel } from './review-action.js';
 
 // Dimensions the live handle was last mounted/resized at. Reset to null
 // whenever no handle is mounted so a fresh mount re-establishes them.
@@ -47,6 +51,98 @@ function mountInlineDeck(
 }
 
 /**
+ * Read the comment count from a review draft file, returning 0 on any error.
+ */
+function readDraftCommentCount(cwd: string, sessionId: string, askId: string): number {
+  try {
+    const raw = readFileSync(askReviewDraftPath(cwd, sessionId, askId), 'utf-8');
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    if (Array.isArray(data['comments'])) return data['comments'].length;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Verify the review.json exists and return the file path, or null.
+ */
+function readReviewFile(cwd: string, sessionId: string, askId: string): string | null {
+  try {
+    const raw = readFileSync(askReviewPath(cwd, sessionId, askId), 'utf-8');
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof data['file'] === 'string') return data['file'];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Render the review-action panel in place of the humanloop deck when the
+ * focused inbox item has kind === 'review'. Lazily mounts state.reviewPanel.
+ */
+function renderReviewPanel(
+  rect: Rect,
+  state: AppState,
+  item: (typeof state.aggregateInbox)[0],
+): string[] {
+  const blank = clipAnsi('', rect.w);
+  const cwd = cwdFromDir(item.dir);
+  const sessionId = sessionIdFromDir(item.dir);
+  const askId = askIdFromDir(item.dir);
+
+  const reviewFile = readReviewFile(cwd, sessionId, askId);
+
+  // Unmount stale panel if the askId changed (user navigated to a different review).
+  const panelAskId = (state.reviewPanel as unknown as { _askId?: string } | null)?._askId;
+  if (state.reviewPanel && panelAskId !== askId) {
+    state.reviewPanel = null;
+  }
+
+  if (!state.reviewPanel) {
+    if (!reviewFile) {
+      // review.json missing — render a one-line error row and let the user Esc out.
+      const rows: string[] = [];
+      const mid = Math.floor(rect.h / 2);
+      for (let i = 0; i < rect.h; i++) {
+        rows.push(i === mid
+          ? clipAnsi(ansiColor('[review.json not found — Esc to dismiss]', 'red'), rect.w)
+          : blank);
+      }
+      return rows;
+    }
+
+    const draftCommentCount = readDraftCommentCount(cwd, sessionId, askId);
+    const panel = mountReviewActionPanel({
+      cwd,
+      sessionId,
+      askId,
+      reviewFile,
+      blockedSince: item.blockedSince,
+      draftCommentCount,
+      onAfterAction: () => {
+        // Unmount panel; outer render loop will re-evaluate inbox on next poll.
+        state.reviewPanel = null;
+        state.focusPane = 'tree';
+        requestRender();
+      },
+    });
+    // Tag the panel with its askId so we can detect staleness above.
+    (panel as unknown as Record<string, unknown>)['_askId'] = askId;
+    state.reviewPanel = panel;
+  }
+
+  const panelRows = state.reviewPanel.render(rect.w, rect.h);
+  const result: string[] = [];
+  for (let i = 0; i < rect.h; i++) {
+    const line = panelRows[i];
+    result.push(clipAnsi(line !== undefined ? line : '', rect.w));
+  }
+  return result;
+}
+
+/**
  * Borderless inline inbox deck. Replaces the cross-session inbox list when the
  * cursor is on `needs-you-virtual`: lazily mounts a resolution handle on the
  * oldest pending ask, draws a 3-row header, then the deck/visual body. Every
@@ -76,6 +172,13 @@ export function renderInboxDeckRows(rect: Rect, state: AppState): string[] {
   // Empty inbox → empty state, never mount.
   if (state.aggregateInbox.length === 0) {
     return emptyState();
+  }
+
+  // Check if the oldest pending item is a review kind — if so, render the
+  // review-action panel instead of the humanloop inline deck.
+  const firstItem = state.aggregateInbox[0]!;
+  if (firstItem.kind === 'review') {
+    return renderReviewPanel(rect, state, firstItem);
   }
 
   const HEADER = 3;

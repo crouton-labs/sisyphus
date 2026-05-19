@@ -200,10 +200,10 @@ export interface OrchestratorCycle {
 
 // ── sisyphus ask: interaction / deck types — canonical shapes from humanloop ──
 
-export type { Deck, Interaction, InteractionOption, InteractionKind, InteractionResponse } from '@crouton-kit/humanloop';
+export type { Deck, Interaction, InteractionOption, InteractionKind, InteractionResponse, FeedbackResult, FeedbackComment } from '@crouton-kit/humanloop';
 
 // Sisyphus-only extension: modeChain on DeckSource
-import type { DeckSource as HumanloopDeckSource, InteractionKind, InteractionResponse } from '@crouton-kit/humanloop';
+import type { DeckSource as HumanloopDeckSource, FeedbackResult, InteractionKind, InteractionResponse } from '@crouton-kit/humanloop';
 
 export interface ModeChainEntry {
   mode: string;
@@ -219,10 +219,19 @@ export type DeckSource = HumanloopDeckSource & {
   modeChain?: ModeChainEntry[];
 };
 
-export interface AskOutput {
+export interface DeckAskOutput {
+  kind?: 'deck';
   responses: InteractionResponse[];
   completedAt: string;
 }
+
+export interface ReviewAskOutput {
+  kind: 'review';
+  feedback: FeedbackResult;
+  completedAt: string;
+}
+
+export type AskOutput = DeckAskOutput | ReviewAskOutput;
 
 export interface VisualBlock {
   questionId: string;

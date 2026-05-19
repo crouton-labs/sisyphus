@@ -1599,6 +1599,34 @@ export function handleKeypress(input: string, key: Key, state: AppState, actions
     handleResolutionKey(input, key, state, actions);
     return;
   }
+  // Review panel owns the keystream only when the detail pane is focused and
+  // the focused inbox item is kind='review'. Esc is handled here (unmounts panel
+  // and returns focus to tree); all other keys route to the panel's handleKey
+  // first and fall through on false.
+  if (
+    state.reviewPanel &&
+    state.focusPane === 'detail' &&
+    actions.getCursorNode()?.type === 'needs-you-virtual'
+  ) {
+    if (key.escape) {
+      state.reviewPanel = null;
+      state.focusPane = 'tree';
+      requestRender();
+      return;
+    }
+    if (key.tab && key.shift) {
+      state.focusPane = 'tree';
+      requestRender();
+      return;
+    }
+    const consumed = state.reviewPanel.handleKey(input);
+    if (consumed) {
+      requestRender();
+      return;
+    }
+    // Not consumed — fall through to normal navigation below.
+  }
+
   // Inline inbox deck owns the keystream only when the detail pane is focused
   // (Tab/→ into it). While focus is on the tree, j/k pass through so the cursor
   // can move past needs-you-virtual without the deck trapping navigation.
