@@ -41,7 +41,7 @@
   },
   "dependencies": {
     "@crouton-kit/crouter": "latest",
-    "@crouton-kit/humanloop": "0.3.7",
+    "@crouton-kit/humanloop": "latest",
     "@r-cli/sdk": "^1.2.0",
     "commander": "^13.1.0",
     "string-width": "^5.1.2",

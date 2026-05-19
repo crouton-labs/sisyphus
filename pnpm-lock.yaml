@@ -12,7 +12,7 @@ importers:
         specifier: latest
         version: 0.2.6
       '@crouton-kit/humanloop':
-        specifier: 0.3.7
+        specifier: latest
         version: 0.3.7
       '@r-cli/sdk':
         specifier: ^1.2.0
