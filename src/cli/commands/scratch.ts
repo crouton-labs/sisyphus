@@ -2,6 +2,7 @@ import type { Command } from 'commander';
 import { execSync } from 'node:child_process';
 import { assertTmux } from '../tmux.js';
 import { shellQuote } from '../../shared/shell.js';
+import { emitJsonOk } from '../output.js';
 
 /**
  * Find the home session (non-ssyph_ session with matching @sisyphus_cwd).
@@ -44,7 +45,24 @@ export function registerScratch(program: Command): void {
   program
     .command('scratch [prompt...]')
     .description('Open a standalone Claude Code session in the home tmux session')
-    .option('-c, --cwd <path>', 'Working directory for the Claude session')
+    .option('--cwd <path>', 'Working directory for the Claude session')
+    .addHelpText('after', `
+session scratch: open a standalone Claude Code window in the project's home tmux session.
+
+Input
+  [prompt...]     optional variadic — words joined into a single prompt string passed to Claude via -p
+  --cwd <path>    optional — working directory for the Claude session; defaults to $SISYPHUS_CWD then process cwd
+
+Output (stdout, JSON)
+  { ok, schema_version: 1, data: { tmuxSession, windowId } }
+  tmuxSession is the tmux session name; windowId is the tmux window ID (e.g. @42).
+  on error: { ok: false, schema_version: 1, error: { code, message } }
+
+Effects
+  Creates a new tmux window named "scratch" in the home tmux session.
+  Sends \`claude --dangerously-skip-permissions\` (with optional -p <prompt>) to the window.
+
+Exit codes: 0 ok | 2 usage.`)
     .action((promptParts: string[], opts: { cwd?: string }) => {
       assertTmux();
 
@@ -79,5 +97,5 @@ function openScratchWindow(tmuxSession: string, cwd: string, prompt: string): vo
     `tmux send-keys -t ${shellQuote(windowId)} ${shellQuote(cmd)} Enter`,
   );
 
-  console.log(`Scratch session opened in ${tmuxSession}`);
+  emitJsonOk({ tmuxSession, windowId });
 }

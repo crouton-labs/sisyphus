@@ -16,12 +16,18 @@ export function registerSegmentRegister(program: Command): void {
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis segment register --id deploy --side right --priority 10 --bg "#2d2f33" --content "deploy: ok"
+Input
+  --id <id>          required. Segment identifier.
+  --side <side>      required. Side to render on: left or right.
+  --priority <n>     required. Priority (lower = further from center).
+  --bg <color>       required. Background hex color (e.g. #2d2f33).
+  --content <tmux>   required. tmux format string content.
 
-Output:
-  Default       "Segment '<id>' registered." on stdout.
-  --json        { ok, schema_version: 1, data: { id } }
+Output (stdout, JSON, schema_version: 1)
+  ok, schema_version: 1, data: { id }
+
+Effects
+  Registers or replaces the named segment in the status bar.
 
 Exit codes: 0 ok | 2 usage (bad --side).`,
     )
@@ -42,7 +48,6 @@ Exit codes: 0 ok | 2 usage (bad --side).`,
       };
       const response = await sendRequest(request);
       if (!response.ok) exitError(response.error);
-      if (emitJsonOk({ id: opts.id })) return;
-      console.log(`Segment '${opts.id}' registered.`);
+      emitJsonOk({ id: opts.id }); return;
     });
 }

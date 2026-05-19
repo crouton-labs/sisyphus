@@ -14,6 +14,22 @@ export function registerExport(program: Command): void {
     .description('Export session data as zip to ~/Downloads')
     .argument('[session-id]', 'Session ID (defaults to SISYPHUS_SESSION_ID or active session)')
     .option('--cwd <path>', 'Project directory override')
+    .addHelpText('after', `
+session inspect export: package a session's state and artifacts into a zip archive.
+
+Input
+  [session-id]    optional — session ID to export; defaults to $SISYPHUS_SESSION_ID then the active session for cwd
+  --cwd <path>    optional — project directory used to resolve the active session; defaults to $SISYPHUS_CWD then process cwd
+
+Output (stdout, JSON)
+  { ok, schema_version: 1, data: { sessionId, outputPath } }
+  outputPath is the absolute path of the written zip file (typically ~/Downloads/<sessionId>.zip).
+  on error: { ok: false, schema_version: 1, error: { code, message } }
+
+Effects
+  Writes a zip archive to ~/Downloads.
+
+Exit codes: 0 ok | 2 usage | 1 export_failed.`)
     .action(async (sessionIdArg?: string, opts?: { cwd?: string }) => {
       let sessionId = sessionIdArg ?? process.env.SISYPHUS_SESSION_ID;
       const cwd = opts?.cwd ?? process.env['SISYPHUS_CWD'] ?? process.cwd();
@@ -37,8 +53,7 @@ export function registerExport(program: Command): void {
 
       try {
         const outputPath = await exportSessionToZip(sessionId, cwd);
-        if (emitJsonOk({ sessionId, outputPath })) return;
-        console.log(`Exported to ${outputPath}`);
+        emitJsonOk({ sessionId, outputPath }); return;
       } catch (err) {
         exitError({
           code: 'export_failed',

@@ -16,6 +16,25 @@ export function registerInit(program: Command): void {
     .command('init')
     .description('Initialize sisyphus configuration for this project')
     .option('--orchestrator', 'Also create a custom orchestrator prompt template')
+    .addHelpText(
+      'after',
+      `
+init: initialize sisyphus project configuration in the current directory.
+
+Input
+  --orchestrator    optional boolean — also create .sisyphus/orchestrator.md
+                    with a custom orchestrator prompt template.
+
+Output (stdout, plain text)
+  Prints the path(s) of created files, or reports if already initialized.
+
+Effects
+  Creates .sisyphus/config.json in the current working directory.
+  If --orchestrator: also creates .sisyphus/orchestrator.md.
+  No-ops if .sisyphus/config.json already exists.
+
+Exit codes: 0 ok`,
+    )
     .action((opts: { orchestrator?: boolean }) => {
       const cwd = process.cwd();
       const sisDir = join(cwd, '.sisyphus');

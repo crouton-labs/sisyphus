@@ -16,7 +16,7 @@ This means:
 - All state lives in files: `state.json`, `goal.md`, `strategy.md`, `roadmap.md`, context artifacts
 - The orchestrator re-orients every cycle by reading these files
 - If a file wasn't written, the knowledge is lost — there's no implicit state
-- `sisyphus orch yield` is a death sentence for the current process, not a pause
+- `sis orch yield` is a death sentence for the current process, not a pause
 
 **Cycle lifecycle:** spawn → read disk state → decide what to do → spawn agents → wait for completion → read results → yield (die) → respawn fresh
 
@@ -49,10 +49,10 @@ Agents can't talk to each other directly. All communication is mediated through 
 | Channel | Direction | Mechanism |
 |---|---|---|
 | Context artifacts | agent → future agents | Files in `context/` — exploration docs, designs, requirements, plans |
-| Reports | agent → orchestrator | `sisyphus agent submit` (terminal) or `sisyphus agent report` (non-terminal) |
+| Reports | agent → orchestrator | `sis agent submit` (terminal) or `sis agent report` (non-terminal) |
 | State | daemon → orchestrator | `state.json` — agent statuses, session metadata |
 | Events | daemon → history | `events.jsonl` — timestamped lifecycle events |
-| Yield prompt | orchestrator → next orchestrator | `sisyphus orch yield --prompt "..."` — continuation instructions |
+| Yield prompt | orchestrator → next orchestrator | `sis orch yield --prompt "..."` — continuation instructions |
 
 **Key insight:** the yield prompt is the orchestrator's only way to talk to its future self. Everything important must be either in a file or in the yield prompt. The cycle log (`logs/cycle-NNN.md`) is the orchestrator's memory.
 
@@ -74,8 +74,8 @@ The user is a stakeholder, not a project manager. They answer questions, express
 
 ## Rollback and Recovery
 
-- `sisyphus agent restart <id>` — respawn a killed/failed agent in a new pane (preserves session state)
-- `sisyphus session rollback <sessionId> <cycle>` — destructive rewind to a prior cycle boundary
+- `sis agent restart <id>` — respawn a killed/failed agent in a new pane (preserves session state)
+- `sis session rollback <sessionId> <cycle>` — destructive rewind to a prior cycle boundary
 - Agent failures don't kill the session — the orchestrator reads the failure in the next cycle and decides what to do
 - The daemon keeps agents alive independently; if the orchestrator dies mid-cycle, agents continue working
 
@@ -109,9 +109,9 @@ The orchestrator picks the shape that fits the problem. Stages can be skipped, r
 ```bash
 tail -f ~/.sisyphus/daemon.log    # daemon logs (real-time)
 sisyphus status                    # session + agent state snapshot
-sisyphus admin doctor              # health check: tmux, Claude CLI, launchd
-sisyphus admin history             # browse past sessions
-sisyphus admin history show <id>   # inspect a specific session's events
+sis admin doctor              # health check: tmux, Claude CLI, launchd
+sis admin history             # browse past sessions
+sis admin history show <id>   # inspect a specific session's events
 ```
 
 When investigating a session failure, read the cycle logs (`logs/cycle-NNN.md`) first — they capture the orchestrator's reasoning and decisions at each step. Agent reports (`reports/agent-NNN-final.md`) have the detailed work output.

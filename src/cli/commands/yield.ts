@@ -17,43 +17,26 @@ export function registerYield(program: Command): void {
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis orch yield --mode planning --prompt "agents finished discovery; ready to design"
-  $ sis orch yield --mode implementation --stdin <prompt.md
+orch yield: hand control back to the daemon; orchestrator exits and respawns on the next cycle.
 
---mode (required, every cycle): pass the CURRENT mode to stay in the phase,
-a DIFFERENT mode to transition. There is no implicit "keep current mode".
+Input
+  --mode <mode>      required. Cycle mode for next spawn: discovery, planning, implementation,
+                     validation, completion. Pass current mode to stay in phase; pass a
+                     different mode to transition. No implicit keep-current.
+  --prompt <text>    optional. Orienting nudge for the next cycle; or pipe via stdin.
+  --stdin            optional. Force-read prompt from stdin (avoids shell escaping).
+  --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
+  stdin              optional. Piped input used as prompt when --prompt is omitted.
 
---prompt — orient the next cycle, don't script it:
-  Two clauses only: what just landed (the artifacts) + the live question.
-  Under three sentences. The next cycle has the same reports / roadmap /
-  strategy / digest and runs the same playbook — it triages from a fresh
-  read, not from your plan.
+Output (stdout, JSON)
+  ok, schema_version: 1, data: { sessionId, mode }
 
-  good: --prompt "Three per-commit reviews complete. Address findings; if any
-        is ambiguous work with the user, then decide investigate vs synthesize."
-  good: --prompt "Explore mapped the auth + session layers. Open: is the
-        session refactor in scope or a follow-up?"
-  bad:  --prompt "Read the 3 review docs. If thin, respawn narrower. Then
-        cross-cutting pass. Then synthesize sorted by severity."
-        — scripts the next cycle before it has read anything.
+Effects
+  Kills the current orchestrator process; daemon blocks until all running agents submit, then
+  respawns orchestrator with --mode applied. Never yield while waiting for user input — the
+  respawned instance has no conversation memory and will loop.
 
-  Don't write these rules into the string. "Stay open", "don't pre-decide"
-  are for you, not the next orchestrator — it already has them. The --mode
-  token itself signals a phase change; the prompt is orienting content only.
-
-NEVER yield while waiting for user input. Yield kills this process and
-respawns a fresh instance with no memory of the conversation — you'll see the
-same prompt, have no answer, and loop forever. Ask in the pane and stop instead.
-
-Output:
-  Default       "Yielded. Waiting for agents to complete." on stdout.
-  --json        { ok, schema_version: 1, data: { sessionId, mode } }
-
-Exit codes: 0 ok | 2 usage (missing --mode / --session) | 3 not_found.
-
-After yielding the daemon blocks until all running agents submit, then
-respawns the orchestrator with --mode applied for the next cycle.`,
+Exit codes: 0 ok | 2 usage (missing --mode or --session) | 3 not_found.`,
     )
     .action(async (opts: { prompt?: string; stdin?: boolean; mode?: string; session?: string }) => {
       assertTmux();
@@ -85,7 +68,6 @@ respawns the orchestrator with --mode applied for the next cycle.`,
       const request: Request = { type: 'yield', sessionId, agentId: 'orchestrator', nextPrompt, mode: opts.mode };
       const response = await sendRequest(request);
       if (!response.ok) exitError(response.error);
-      if (emitJsonOk({ sessionId, mode: opts.mode })) return;
-      console.log('Yielded. Waiting for agents to complete.');
+      emitJsonOk({ sessionId, mode: opts.mode }); return;
     });
 }

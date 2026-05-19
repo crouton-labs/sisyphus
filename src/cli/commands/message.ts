@@ -10,29 +10,29 @@ export function registerMessage(program: Command): void {
   program
     .command('message')
     .description('Queue a message for the orchestrator to see on next cycle')
-    .argument('[content]', 'Message content (omit when using --stdin or piping)')
     .option('--session <sessionId>', 'Session ID (defaults to SISYPHUS_SESSION_ID env var)')
     .option('--agent <agentId>', 'Route message to a specific agent inbox instead of the orchestrator')
     .option('--stdin', 'Force-read message content from stdin (avoids shell escaping for long prompts)')
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis orch message "deploy is failing on lint step"
-  $ sis orch message --agent agent-2 "switch focus to db migration"
-  $ cat hint.md | sis orch message --stdin
+orch message: queue a message for the orchestrator (or a specific agent) to see on next cycle.
 
-When NOT to use:
-  Use \`sis orch tell\` to type into a running pane immediately (this queues for
-  the next cycle). Use \`sis ask submit\` to block waiting on a structured reply.
+Input
+  stdin              required. Message body; pipe content directly.
+  --stdin            optional. Force-read from stdin (avoids shell escaping).
+  --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
+  --agent <agentId>  optional. Routes to a specific agent inbox instead of orchestrator.
 
-Output:
-  Default       "Message queued" on stdout.
-  --json        { ok, schema_version: 1, data: { sessionId, agentId? } }
+Output (stdout, JSON)
+  ok, schema_version: 1, data: { sessionId, agentId? }
 
-Exit codes: 0 ok | 2 usage (missing content / session) | 3 not_found.`,
+Effects
+  Queues the message in the daemon inbox for the target; delivered on next cycle.
+
+Exit codes: 0 ok | 2 usage (missing content or --session) | 3 not_found.`,
     )
-    .action(async (contentArg: string | undefined, opts: { session?: string; agent?: string; stdin?: boolean }) => {
+    .action(async (opts: { session?: string; agent?: string; stdin?: boolean }) => {
       const sessionId = opts.session ?? process.env.SISYPHUS_SESSION_ID;
       if (!sessionId) {
         exitUsage('missing_session_id', 'Provide --session or set SISYPHUS_SESSION_ID environment variable', {
@@ -48,20 +48,13 @@ Exit codes: 0 ok | 2 usage (missing content / session) | 3 not_found.`,
             next: 'pipe content: `echo "..." | sis orch message --stdin`',
           });
         }
-        if (contentArg !== undefined && contentArg !== '-') {
-          exitUsage('stdin_conflict', '--stdin conflicts with [content] argument; pass one source', {
-            received: { stdin: true, content: contentArg },
-          });
-        }
-      } else if (contentArg === '-' || contentArg === undefined) {
+      } else {
         content = await readStdin();
         if (!content) {
-          exitUsage('missing_content', 'provide [content] argument, pipe via stdin, or use --stdin', {
-            next: 'sis orch message "text" — or sis orch message --stdin <hint.md',
+          exitUsage('missing_content', 'pipe content via stdin or use --stdin', {
+            next: 'echo "text" | sis orch message — or sis orch message --stdin <hint.md',
           });
         }
-      } else {
-        content = contentArg;
       }
 
       const source: MessageSource | undefined = process.env.SISYPHUS_AGENT_ID
@@ -71,7 +64,6 @@ Exit codes: 0 ok | 2 usage (missing content / session) | 3 not_found.`,
       const request: Request = { type: 'message', sessionId, content: content!, source, ...(opts.agent ? { agentId: opts.agent } : {}) };
       const response = await sendRequest(request);
       if (!response.ok) exitError(response.error);
-      if (emitJsonOk({ sessionId, ...(opts.agent ? { agentId: opts.agent } : {}) })) return;
-      console.log('Message queued');
+      emitJsonOk({ sessionId, ...(opts.agent ? { agentId: opts.agent } : {}) }); return;
     });
 }

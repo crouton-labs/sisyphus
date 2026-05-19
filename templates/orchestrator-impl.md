@@ -107,8 +107,7 @@ Aggregate reviewer findings, then **route each finding to where the fix actually
 - **A handful of trivial code edits** (a missed import, a typo, a one-line constant) — make them yourself rather than spinning up an agent. The agent overhead exceeds the work.
 
 ```bash
-sis agent spawn --name "fix-review-issues" --agent-type sisyphus:implement \
-  "Fix the issues in reports/agent-003-final.md. Skip item #5 (false positive). Run type-check after."
+echo "Fix the issues in reports/agent-003-final.md. Skip item #5 (false positive). Run type-check after." | sis agent spawn --stdin --name "fix-review-issues" --agent-type sisyphus:implement
 ```
 
 Fix agents should use `/simplify` to review their own changes before reporting.

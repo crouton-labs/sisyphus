@@ -1,9 +1,9 @@
 #!/bin/bash
-# PreToolUse Bash gate: agents must invoke `sisyphus ask <deck>` (the submit
+# PreToolUse Bash gate: agents must invoke `sis ask <deck>` (the submit
 # form) with run_in_background: true. The CLI blocks until the user resolves
 # the deck (potentially 10+ min); foregrounding ties up the agent's bash slot
-# and pane for the duration. Allowlist `sisyphus ask poll|peek|-h|--help` and
-# bare `sisyphus ask` (commander prints help).
+# and pane for the duration. Allowlist `sis ask poll|peek|-h|--help` and
+# bare `sis ask` (commander prints help).
 
 if [ -z "$SISYPHUS_SESSION_ID" ] || [ -z "$SISYPHUS_AGENT_ID" ]; then
   exit 0
@@ -27,21 +27,21 @@ except Exception:
 RIB=$(echo "$PARSED" | head -1)
 COMMAND=$(echo "$PARSED" | tail -n +2)
 
-# Not a sisyphus ask invocation — pass through.
-if [[ ! "$COMMAND" =~ sisyphus[[:space:]]+ask ]]; then
+# Not a sis ask invocation — pass through.
+if [[ ! "$COMMAND" =~ sis[[:space:]]+ask ]]; then
   exit 0
 fi
 
-# `sisyphus ask poll|peek` — non-blocking subcommands; foreground is fine.
-if [[ "$COMMAND" =~ sisyphus[[:space:]]+ask[[:space:]]+(poll|peek)([[:space:]]|$) ]]; then
+# `sis ask poll|peek` — non-blocking subcommands; foreground is fine.
+if [[ "$COMMAND" =~ sis[[:space:]]+ask[[:space:]]+(poll|peek)([[:space:]]|$) ]]; then
   exit 0
 fi
 
-# `sisyphus ask -h` / `--help` / bare `sisyphus ask` (prints help) — pass through.
-if [[ "$COMMAND" =~ sisyphus[[:space:]]+ask[[:space:]]+(-h|--help)([[:space:]]|$) ]]; then
+# `sis ask -h` / `--help` / bare `sis ask` (prints help) — pass through.
+if [[ "$COMMAND" =~ sis[[:space:]]+ask[[:space:]]+(-h|--help)([[:space:]]|$) ]]; then
   exit 0
 fi
-if [[ "$COMMAND" =~ sisyphus[[:space:]]+ask[[:space:]]*$ ]]; then
+if [[ "$COMMAND" =~ sis[[:space:]]+ask[[:space:]]*$ ]]; then
   exit 0
 fi
 
@@ -50,7 +50,7 @@ if [ "$RIB" = "1" ]; then
   exit 0
 fi
 
-REASON=$'`sisyphus ask <deck>` blocks until the user resolves the deck (potentially 10+ minutes). Re-issue this Bash tool call with `run_in_background: true` and end your turn — the bash completion notification will wake you with stdout ready to parse. Run `echo \'{"name":"sisyphus/humanloop"}\' | crtr skill read show` (`.content`) for the full pattern.'
+REASON=$'`sis ask <deck>` blocks until the user resolves the deck (potentially 10+ minutes). Re-issue this Bash tool call with `run_in_background: true` and end your turn — the bash completion notification will wake you with stdout ready to parse. Run `echo \'{"name":"sisyphus/humanloop"}\' | crtr skill read show` (`.content`) for the full pattern.'
 
 ESCAPED=$(python3 -c "import json,sys; print(json.dumps(sys.stdin.read()))" <<< "$REASON")
 echo "{\"decision\":\"block\",\"reason\":$ESCAPED}"

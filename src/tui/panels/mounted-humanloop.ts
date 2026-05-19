@@ -235,27 +235,27 @@ export function mountResolutionPanel(
         }
       }
 
-      // Write output first (before inbox-list so daemon sees answered status)
       writeOutput(cwd, sessionId, askId, responses, completedAt);
       await updateMeta(cwd, sessionId, askId, { status: 'answered', completedAt });
 
-      const refreshRes = await opts.daemonSend({ type: 'inbox-list' });
-      const newQueue: (InboxItem & { sessionName?: string })[] = refreshRes.ok
-        ? ((refreshRes.data?.items as (InboxItem & { sessionName?: string })[]) ?? [])
-        : [];
+      // Optimistic local sync. Drop the answered ask from the polled snapshot
+      // (so renderInboxDeckRows' lazy-mount doesn't re-mount on stale data
+      // before the next 2.5s poll lands) and from the handle's local queue.
+      state.aggregateInbox = state.aggregateInbox.filter((i) => i.dir !== it.dir);
+      const idx = queue.findIndex((i) => i.dir === it.dir);
+      if (idx >= 0) queue.splice(idx, 1);
 
-      if (newQueue.length === 0) {
-        opts.onUnmount();
+      if (queue.length === 0) {
+        teardown();
         return;
       }
 
-      queue = newQueue;
-      currentIndex = 0;
-      const nextItem = queue[0]!;
+      currentIndex = Math.min(currentIndex, queue.length - 1);
+      const nextItem = queue[currentIndex]!;
       const nextCoords = itemCoords(nextItem);
-      const nextDeck = buildDeck(0);
+      const nextDeck = buildDeck(currentIndex);
       if (!nextDeck) {
-        opts.onUnmount();
+        teardown();
         return;
       }
 
@@ -343,6 +343,15 @@ export function mountResolutionPanel(
 
   setDeckWatch({ cwd: initCwd, sessionId: initSessionId, askId: initAskId }, initialDeck);
 
+  function teardown(): void {
+    if (watchedDeckPath !== null) {
+      try { unwatchFile(watchedDeckPath, onWatchedDeckChange); } catch { /* best-effort */ }
+      watchedDeckPath = null;
+    }
+    panel.unmount();
+    opts.onUnmount();
+  }
+
   return {
     handleKey(input: string, key: Key) {
       // Key from sisyphus is a structural superset of humanloop Key — no cast needed
@@ -359,12 +368,7 @@ export function mountResolutionPanel(
     },
 
     unmount() {
-      if (watchedDeckPath !== null) {
-        try { unwatchFile(watchedDeckPath, onWatchedDeckChange); } catch { /* best-effort */ }
-        watchedDeckPath = null;
-      }
-      panel.unmount();
-      opts.onUnmount();
+      teardown();
     },
 
     canAcceptHostKeys() {

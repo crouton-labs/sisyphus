@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import { readStdin } from '../stdin.js';
 import { exitUsage } from '../errors.js';
-import { emitJsonOk, isJsonMode } from '../output.js';
+import { emitJsonOk } from '../output.js';
 import { sendRequest } from '../client.js';
 import { getSisyphusVersion } from '../../shared/version.js';
 import { platformLabel } from '../../shared/platform.js';
@@ -189,14 +189,20 @@ export function registerBug(program: Command): void {
     .option('--no-session', 'Do not attach any session stats')
     .option('--logs [n]', 'Attach the last N lines of daemon.log (default 50)')
     .option('--cwd <path>', 'Project directory used to find the active session', process.cwd())
-    .option('--dry-run', 'Print the assembled issue (title + body) without filing it')
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis admin report bug "spawn hangs when tmux server restarts mid-cycle"
-  $ sis admin report bug --stdin --logs < report.md
-  $ sis admin report bug "..." --dry-run        # preview the issue, file nothing
+bug: report a sisyphus bug — files a GitHub issue with feedback + diagnostics.
+
+Input
+  [description]     optional positional — what went wrong (omit to read from stdin or --message).
+  --message <msg>   bug description (alternative to the positional argument).
+  --stdin           read the description from stdin (avoids shell escaping for long reports).
+  --title <title>   issue title (default: first line of the description).
+  --session <id>    attach stats for a specific session (default: active session for cwd).
+  --no-session      do not attach any session stats.
+  --logs [n]        attach the last N lines of daemon.log (default 50).
+  --cwd <path>      project directory used to find the active session (default: cwd).
 
 Telemetry attached (all non-sensitive — bug reports become PUBLIC issues):
   - Versions / platform (sisyphus, node, claude, tmux, git, gh, OS)
@@ -206,13 +212,12 @@ Telemetry attached (all non-sensitive — bug reports become PUBLIC issues):
 
 Filing:
   Uses \`gh issue create\` against ${REPO}. If \`gh\` is missing or
-  unauthenticated, prints a prefilled GitHub "new issue" URL instead.
+  unauthenticated, opens a prefilled GitHub "new issue" URL instead.
 
-Output:
-  Default       Issue URL on stdout.
-  --json        { ok, schema_version: 1, data: { url | issueUrl, dryRun } }
+Output (stdout, JSON envelope)
+  { ok, schema_version: 1, data: { url | issueUrl, filed } }
 
-Exit codes: 0 ok | 2 usage.`,
+Exit codes: 0 ok | 1 filing error | 2 usage`,
     )
     .action(
       async (
@@ -224,7 +229,6 @@ Exit codes: 0 ok | 2 usage.`,
           session?: string;
           logs?: string | boolean;
           cwd: string;
-          dryRun?: boolean;
         },
       ) => {
         let description: string | null | undefined;
@@ -265,23 +269,9 @@ Exit codes: 0 ok | 2 usage.`,
         const title = opts.title ?? deriveTitle(description);
         const body = buildBody({ description, env, session, logTail });
 
-        if (opts.dryRun) {
-          if (!emitJsonOk({ dryRun: true, repo: REPO, title, body })) {
-            console.log(`Repo:  ${REPO}`);
-            console.log(`Title: ${title}`);
-            console.log('');
-            console.log(body);
-          }
-          return;
-        }
-
         if (!ghReady()) {
           const url = fallbackUrl(title, body);
-          if (!emitJsonOk({ url, filed: false })) {
-            console.log("GitHub CLI unavailable or not authenticated — open this prefilled issue:\n");
-            console.log(url);
-            console.log("\n(Install + run `gh auth login`, then re-run `sis admin report bug` to file automatically.)");
-          }
+          emitJsonOk({ url, filed: false });
           return;
         }
 
@@ -294,21 +284,12 @@ Exit codes: 0 ok | 2 usage.`,
         if (result.status !== 0) {
           const url = fallbackUrl(title, body);
           const stderr = (result.stderr ?? '').trim();
-          if (!emitJsonOk({ url, filed: false, error: stderr })) {
-            console.error(`gh issue create failed${stderr ? `: ${stderr}` : ''}`);
-            console.log('\nOpen this prefilled issue instead:\n');
-            console.log(url);
-          }
+          emitJsonOk({ url, filed: false, error: stderr });
           process.exit(1);
         }
 
         const issueUrl = (result.stdout ?? '').trim().split('\n').filter(Boolean).pop() ?? '';
-        if (!emitJsonOk({ issueUrl, filed: true })) {
-          console.log(`Filed: ${issueUrl}`);
-        }
-        if (!isJsonMode() && !issueUrl) {
-          console.log('(Issue created — gh did not print a URL.)');
-        }
+        emitJsonOk({ issueUrl, filed: true });
       },
     );
 }

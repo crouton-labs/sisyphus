@@ -48,7 +48,7 @@ cat > "$deck" <<EOF
   }]
 }
 EOF
-result=$(sis ask submit "$deck") || { sis agent submit "Plateau-breaker deck failed — type: $type — deck: $deck"; exit 1; }
+result=$(sis ask deck submit "$deck") || { sis agent submit "Plateau-breaker deck failed — type: $type — deck: $deck"; exit 1; }
 [ -n "$result" ] || { sis agent submit "Plateau-breaker deck: empty result — type: $type — deck: $deck"; exit 1; }
 choice=$(echo "$result" | jq -r '.responses[0].selectedOptionId // empty')
 notes=$(echo  "$result" | jq -r '.responses[0].freetext // ""')

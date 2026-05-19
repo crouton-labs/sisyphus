@@ -9,22 +9,26 @@ type EffortTier = typeof VALID_TIERS[number];
 
 export function registerSessionEffort(program: Command): void {
   program
-    .command('effort <sessionId> <tier>')
+    .command('effort <sessionId>')
     .description('Set the pipeline effort tier for a session (future cycles only; running agents keep their original prompt)')
+    .requiredOption('--tier <level>', 'Effort level: low | medium | high | xhigh')
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis session config effort sess-7f2a high
-  $ sis session config effort sess-7f2a xhigh --json
+Input
+  <sessionId>    required. Session to reconfigure.
+  --tier         required. Effort level: low | medium | high | xhigh.
 
-Output:
-  Default       "Effort tier set to '<tier>' for session <id>" + scope note.
-  --json        { ok, schema_version: 1, data: { sessionId, effort } }
+Output (stdout, JSON, schema_version: 1)
+  ok, schema_version: 1, data: { sessionId, effort }
+
+Effects
+  Updates the session's effort tier in daemon state.
 
 Exit codes: 0 ok | 2 usage (bad tier) | 3 not_found.`,
     )
-    .action(async (sessionId: string, tier: string) => {
+    .action(async (sessionId: string, opts: { tier: string }) => {
+      const tier = opts.tier;
       if (!VALID_TIERS.includes(tier as EffortTier)) {
         exitUsage('bad_tier', `tier must be one of: ${VALID_TIERS.join(', ')}`, {
           received: tier,
@@ -35,8 +39,6 @@ Exit codes: 0 ok | 2 usage (bad tier) | 3 not_found.`,
       const request: Request = { type: 'set-effort', sessionId, effort: tier as EffortTier };
       const response = await sendRequest(request);
       if (!response.ok) exitError(response.error);
-      if (emitJsonOk({ sessionId, effort: tier })) return;
-      console.log(`Effort tier set to '${tier}' for session ${sessionId}`);
-      console.log('Note: Future cycles only — running agents keep their original prompt.');
+      emitJsonOk({ sessionId, effort: tier }); return;
     });
 }

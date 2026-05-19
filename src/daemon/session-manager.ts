@@ -868,8 +868,8 @@ function formatPendingAskError(verb: 'yield' | 'submit', askedBy: string, open: 
   const lines = open.map(a => `  - ${a.askId} (${a.status})${a.title ? ': ' + a.title : ''}`);
   const who = askedBy === ORCHESTRATOR_ASKED_BY ? 'orchestrator' : `agent ${askedBy}`;
   const recovery = verb === 'yield'
-    ? `Resolve before yielding: \`sis ask poll <askId>\` blocks until the user answers, then process the response and yield with a continuation prompt that names the answered branch.`
-    : `Resolve before submitting: \`sis ask poll <askId>\` blocks until the user answers, parse the response, then call \`sis agent submit\` with your final report.`;
+    ? `Resolve before yielding: \`sis ask state poll <askId>\` blocks until the user answers, then process the response and yield with a continuation prompt that names the answered branch.`
+    : `Resolve before submitting: \`sis ask state poll <askId>\` blocks until the user answers, parse the response, then call \`sis agent submit\` with your final report.`;
   return `Cannot ${verb}: ${who} owns ${open.length} open deck${open.length === 1 ? '' : 's'}:\n${lines.join('\n')}\n\n${recovery}`;
 }
 

@@ -19,6 +19,26 @@ export function registerUpload(program: Command): void {
     .description('Upload a session zip to the configured upload endpoint')
     .argument('[session-id]', 'Session ID (defaults to SISYPHUS_SESSION_ID or active session)')
     .option('--cwd <path>', 'Project directory override')
+    .addHelpText(
+      'after',
+      `
+upload: upload a completed session zip to the configured Cloudflare Worker endpoint.
+
+Input
+  [session-id]    optional — session to upload; defaults to SISYPHUS_SESSION_ID env var,
+                  then active session for --cwd.
+  --cwd <path>    project directory override (default: SISYPHUS_CWD env var or cwd).
+
+Output (stdout, JSON envelope)
+  { ok, schema_version: 1, data: { sessionId, storageKey } }
+
+Effects
+  Exports session to a temporary zip file, POSTs it to the configured upload URL,
+  updates session upload status via the daemon, and deletes the temporary zip.
+  Requires upload configured via \`sis admin report configure-upload\`.
+
+Exit codes: 0 ok | 1 upload or export error | 2 usage`,
+    )
     .action(async (sessionIdArg?: string, opts?: { cwd?: string }) => {
       let sessionId = sessionIdArg ?? process.env.SISYPHUS_SESSION_ID;
       const cwd = opts?.cwd ?? process.env['SISYPHUS_CWD'] ?? process.cwd();
@@ -112,9 +132,7 @@ export function registerUpload(program: Command): void {
           console.warn('warning: daemon unreachable — upload status not persisted to session state');
         }
 
-        if (!emitJsonOk({ sessionId, storageKey: result!.storageKey })) {
-          console.log(`Uploaded to ${result!.storageKey}`);
-        }
+        emitJsonOk({ sessionId, storageKey: result!.storageKey }); return;
       } finally {
         rmSync(zipPath!, { force: true });
       }

@@ -1,12 +1,9 @@
 import type { Command } from 'commander';
 import { sendRequest } from '../client.js';
 import type { Request } from '../../shared/protocol.js';
-import { basename } from 'node:path';
-import { bold, dim, red, magenta, colorize } from '../../shared/format.js';
-import { exitError } from '../errors.js';
-import { emitJsonOk } from '../output.js';
+import { exitError, exitUsage } from '../errors.js';
 
-interface SessionSummary {
+interface Session {
   id: string;
   name?: string;
   task: string;
@@ -23,101 +20,109 @@ interface SessionSummary {
   };
 }
 
-function statusColor(s: string): string {
-  switch (s) {
-    case 'active': return 'green';
-    case 'paused': return 'yellow';
-    case 'completed': return 'cyan';
-    default: return '';
-  }
+interface Cursor {
+  lastCreatedAt: string;
+  lastId: string;
 }
 
-function colorStatus(s: string): string {
-  const name = statusColor(s);
-  if (!name) return s;
-  return colorize(s, name);
+function encodeCursor(createdAt: string, id: string): string {
+  return Buffer.from(JSON.stringify({ lastCreatedAt: createdAt, lastId: id })).toString('base64');
 }
 
-function handoffAnnotation(h: SessionSummary['handoff']): string {
-  if (!h) return '';
-  if (h.lastError) {
-    return `  ${red(`handoff error: ${h.lastError}`)}`;
+function decodeCursor(token: string): Cursor {
+  try {
+    const raw = Buffer.from(token, 'base64').toString('utf-8');
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      typeof (parsed as Record<string, unknown>)['lastCreatedAt'] !== 'string' ||
+      typeof (parsed as Record<string, unknown>)['lastId'] !== 'string'
+    ) {
+      throw new Error('shape mismatch');
+    }
+    return parsed as Cursor;
+  } catch {
+    exitUsage('invalid_cursor', 'cursor token is malformed or corrupt; omit it to start from the beginning');
   }
-  if (h.reclaimedAt) {
-    return `  ${dim('(reclaimed)')}`;
-  }
-  if (h.sentAt && h.target) {
-    return `  ${magenta(`→ ${h.target.provider}:${h.target.repo}`)}`;
-  }
-  if (h.target) {
-    return `  ${magenta(`handoff queued → ${h.target.provider}:${h.target.repo}`)}`;
-  }
-  return `  ${magenta('quiesce queued')}`;
-}
-
-function truncateTask(task: string, max: number): string {
-  if (task.length <= max) return task;
-  return task.slice(0, max - 1) + '…';
 }
 
 export function registerList(program: Command): void {
   program
     .command('list')
     .description('List sessions (defaults to current project)')
-    .option('-a, --all', 'Show sessions from all projects')
-    .option('--cwd <path>', 'Project directory to list sessions for (overrides SISYPHUS_CWD)')
-    .addHelpText(
-      'after',
-      `
-Examples:
-  $ sis session inspect list
-  $ sis session inspect list --all
-  $ sis session inspect list --json | jq '.data.sessions[] | select(.status=="active")'
+    .addHelpText('after', `
+session inspect list: list sessions in the requested scope with cursor pagination.
 
-Output:
-  Default       One line per session, columns: name(id) status agents task [cwd] [handoff].
-                Tasks truncated at 60 chars (no recovery flag; use --json for full).
-  --json        { ok, schema_version: 1, data: { sessions: [...], totalCount?, filtered? } }
-                Sessions include full task text — no truncation.
+Input
+  --limit N         optional. Default 20, max 100. Hard-capped at 100.
+  --cursor TOKEN    optional. Opaque token from a previous response's next_cursor.
+                    Omit on the first call.
+  --all             optional boolean. Include sessions from all project directories.
+  --cwd PATH        optional. Project directory override; default is $SISYPHUS_CWD or cwd.
 
-Exit codes: 0 ok | 60 transient (daemon not ready).`,
-    )
-    .action(async (opts: { all?: boolean; cwd?: string }) => {
+Output (stdout, JSON, schema_version: 2)
+  items        object[]. Sorted by createdAt ascending; stable across pages.
+               Fields: {id, name?, task, status, agentCount, createdAt, cwd?, handoff?}.
+  next_cursor  string | null. Pass to the next call. null on the last page.
+  total        integer. Total count in the requested scope (cwd-only by default,
+               global with --all). Exact — the daemon ships the full scoped list
+               cheaply, so the CLI just takes .length on it.
+
+Effects
+  None. Read-only.
+
+Exit codes: 0 ok | 2 usage | 3 not_found.`)
+    .option('--all', 'List sessions across all projects')
+    .option('--cwd <path>', 'Project directory override; default is $SISYPHUS_CWD or cwd')
+    .option('--limit <n>', 'Page size, default 20, max 100', '20')
+    .option('--cursor <token>', "Opaque cursor from prior response's next_cursor")
+    .action(async (opts: { all?: boolean; cwd?: string; limit: string; cursor?: string }) => {
+      const limitRaw = parseInt(opts.limit, 10);
+      if (isNaN(limitRaw) || limitRaw < 1 || limitRaw > 100) {
+        exitUsage('limit_out_of_range', '--limit must be an integer between 1 and 100', {
+          received: opts.limit,
+          expected: '1–100',
+        });
+      }
+      const limit = limitRaw;
+
+      const cursor = opts.cursor ? decodeCursor(opts.cursor) : null;
+
       const cwd = opts.cwd ?? process.env['SISYPHUS_CWD'] ?? process.cwd();
       const request: Request = { type: 'list', cwd, all: opts.all };
       const response = await sendRequest(request);
       if (!response.ok) exitError(response.error);
-      const sessions = (response.data?.sessions ?? []) as SessionSummary[];
-      const totalCount = response.data?.totalCount as number | undefined;
-      const filtered = response.data?.filtered as boolean | undefined;
 
-      if (emitJsonOk({ sessions, ...(totalCount !== undefined ? { totalCount } : {}), ...(filtered !== undefined ? { filtered } : {}) })) {
-        return;
-      }
+      const requestedScope = (response.data?.sessions ?? []) as Session[];
 
-      if (sessions.length === 0) {
-        if (filtered && totalCount && totalCount > 0) {
-          console.log(`No sessions in this project. ${totalCount} session(s) in other projects.`);
-          console.log(`${dim('Run ')}sis session inspect list --all${dim(' to show all.')}`);
-        } else {
-          console.log('No sessions');
-        }
-        return;
-      }
+      // Sort ascending by createdAt, tiebreak by id
+      const sorted = [...requestedScope].sort((a, b) => {
+        const cmp = a.createdAt.localeCompare(b.createdAt);
+        return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
+      });
 
-      for (const s of sessions) {
-        const status = colorStatus(s.status);
-        const agents = dim(`${s.agentCount} agent(s)`);
-        const task = truncateTask(s.task, 60);
-        const label = s.name ? `${s.name} ${dim(`(${s.id.slice(0, 8)})`)}` : s.id;
-        const cwdLabel = opts.all && s.cwd ? `  ${dim(basename(s.cwd))}` : '';
-        const handoffLabel = handoffAnnotation(s.handoff);
-        console.log(`  ${bold(label)}  ${status}  ${agents}  ${task}${cwdLabel}${handoffLabel}`);
-      }
+      // Filter out items at or before the cursor position
+      const afterCursor = cursor
+        ? sorted.filter((s) => {
+            const cmp = s.createdAt.localeCompare(cursor.lastCreatedAt);
+            if (cmp !== 0) return cmp > 0;
+            return s.id.localeCompare(cursor.lastId) > 0;
+          })
+        : sorted;
 
-      if (filtered && totalCount && totalCount > sessions.length) {
-        const otherCount = totalCount - sessions.length;
-        console.log(`\n${dim(`${otherCount} more session(s) in other projects. Run `)}sis session inspect list --all${dim(' to show all.')}`);
-      }
+      // Fetch one extra to detect next page
+      const page = afterCursor.slice(0, limit);
+      const hasMore = afterCursor.length > limit;
+
+      const next_cursor = hasMore
+        ? encodeCursor(page[page.length - 1]!.createdAt, page[page.length - 1]!.id)
+        : null;
+
+      const total = requestedScope.length;
+
+      process.stdout.write(
+        JSON.stringify({ ok: true, schema_version: 2, data: { items: page, next_cursor, total } }) + '\n',
+      );
     });
 }

@@ -12,9 +12,14 @@ export function registerSegmentUnregister(program: Command): void {
     .addHelpText(
       'after',
       `
-Output:
-  Default       "Segment '<id>' unregistered." on stdout.
-  --json        { ok, schema_version: 1, data: { id } }
+Input
+  --id <id>    required. Segment identifier to remove.
+
+Output (stdout, JSON, schema_version: 1)
+  ok, schema_version: 1, data: { id }
+
+Effects
+  Removes the named segment from the status bar.
 
 Exit codes: 0 ok | 3 not_found.`,
     )
@@ -22,7 +27,6 @@ Exit codes: 0 ok | 3 not_found.`,
       const request: Request = { type: 'unregister-segment', id: opts.id };
       const response = await sendRequest(request);
       if (!response.ok) exitError(response.error);
-      if (emitJsonOk({ id: opts.id })) return;
-      console.log(`Segment '${opts.id}' unregistered.`);
+      emitJsonOk({ id: opts.id }); return;
     });
 }

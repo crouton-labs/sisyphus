@@ -12,15 +12,17 @@ export function registerSessionTask(program: Command): void {
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis session config task "Refactor auth to use refresh tokens"
-  $ sis session config task "..." --session sess-7f2a --json
+Input
+  <task>             required. New task/goal string for the session.
+  --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
 
-Output:
-  Default       "Task updated" on stdout.
-  --json        { ok, schema_version: 1, data: { sessionId, task } }
+Output (stdout, JSON, schema_version: 1)
+  ok, schema_version: 1, data: { sessionId, task }
 
-Exit codes: 0 ok | 2 usage | 3 not_found.`,
+Effects
+  Overwrites the session's stored task field in daemon state.
+
+Exit codes: 0 ok | 2 usage (missing --session) | 3 not_found.`,
     )
     .action(async (task: string, opts: { session?: string }) => {
       const sessionId = opts.session ?? process.env.SISYPHUS_SESSION_ID;
@@ -33,7 +35,6 @@ Exit codes: 0 ok | 2 usage | 3 not_found.`,
       const request: Request = { type: 'update-task', sessionId, task };
       const response = await sendRequest(request);
       if (!response.ok) exitError(response.error);
-      if (emitJsonOk({ sessionId, task })) return;
-      console.log('Task updated');
+      emitJsonOk({ sessionId, task }); return;
     });
 }

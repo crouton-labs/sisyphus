@@ -80,7 +80,7 @@ The daemon does not poll the layer dirs continuously — it scans them at well-d
 | Agent spawn | Agent body, sub-agents, hooks, skills (per-spawn fresh composition) |
 | Orchestrator spawn (each cycle) | Orchestrator plugin tree, modes, settings, base prompt |
 
-So edits to bundled or layered files **take effect on the next spawn** — no daemon restart strictly required for agent edits. **But:** if your edit changes how the orchestrator should pick agents/modes (e.g., you added a new mode), restart the orchestrator (`sis orch yield` to kill + respawn) so the new system prompt is built. A full daemon restart (`sisyphus admin daemon restart`) is overkill for most edits.
+So edits to bundled or layered files **take effect on the next spawn** — no daemon restart strictly required for agent edits. **But:** if your edit changes how the orchestrator should pick agents/modes (e.g., you added a new mode), restart the orchestrator (`sis orch yield` to kill + respawn) so the new system prompt is built. A full daemon restart (`sis admin daemon restart`) is overkill for most edits.
 
 ## Extending an existing agent — the override-vs-fresh decision
 
@@ -96,7 +96,7 @@ You're modifying `review` for this project. Three options:
 
 ```bash
 # Show all available agent types and their layer source
-sisyphus admin doctor                              # confirms paths resolve
+sis admin doctor                              # confirms paths resolve
 
 # Inspect what was actually composed for a spawned agent
 ls .sisyphus/sessions/<id>/prompts/<agent>-plugin/

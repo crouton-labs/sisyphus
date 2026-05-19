@@ -62,6 +62,24 @@ function buildDashboardCommand(target: Command, hidden: boolean): void {
   target
     .command('dashboard', { hidden })
     .description('Launch the TUI dashboard for monitoring and managing sessions')
+    .addHelpText(
+      'after',
+      `
+dashboard: launch the interactive TUI for monitoring and managing sisyphus sessions.
+
+Input
+  (none)    Launches against the current working directory.
+
+Output (TUI; human surface, not for agentic consumption — JSON-only contract does not apply)
+  Full-screen terminal UI showing live session state, agent status, roadmap,
+  cycle history, and interactive controls.
+
+Effects
+  Spawns the TUI process attached to the current terminal (stdio: inherit).
+  The TUI process exits when the user quits (q).
+
+Exit codes: 0 ok | 1 tmux not available`,
+    )
     .action(async () => {
       assertTmux();
       const tuiPath = join(import.meta.dirname, 'tui.js');

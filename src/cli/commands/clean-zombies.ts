@@ -169,9 +169,25 @@ export function registerCleanZombies(program: Command): void {
   program
     .command('clean-zombies')
     .description('Sweep all sessions for zombie asks (heartbeats whose original is answered, orphans whose agent is superseded, stale mode-gate notifications) and dismiss them')
-    .option('--dry-run', 'List zombies without writing response.json')
-    .action(async (opts: { dryRun?: boolean }) => {
-      const dryRun = opts.dryRun ?? false;
+    .addHelpText(
+      'after',
+      `
+clean-zombies: sweep all sessions and dismiss stale ask records.
+
+Input
+  (none)
+
+Output (stdout, plain text — human-readable maintenance summary; not for agentic consumption)
+  Reports the count of dismissed zombies by type, or "No zombie asks found."
+
+Effects
+  Mutates ask records: writes response.json and updates status to "answered" for each
+  zombie found. Dismisses heartbeat asks whose original was answered, orphan asks whose
+  target agent is no longer running, and mode-gate asks the session has advanced past.
+
+Exit codes: 0 ok`,
+    )
+    .action(async () => {
       const reg = loadSessionRegistry();
       const entries = Object.entries(reg);
 
@@ -211,16 +227,6 @@ export function registerCleanZombies(program: Command): void {
         return;
       }
 
-      if (dryRun) {
-        console.log(`\n[dry-run] Would dismiss ${total} zombie ask${total === 1 ? '' : 's'} across ${sessionsSweept.size} session${sessionsSweept.size === 1 ? '' : 's'}:\n`);
-        for (const z of allZombies) {
-          console.log(`  [${z.kind}] ${z.sessionId.slice(0, 8)}…/${z.askId} — ${z.reason}`);
-        }
-        console.log(`\nSummary: ${summary.heartbeats} heartbeat${summary.heartbeats === 1 ? '' : 's'}, ${summary.orphans} orphan${summary.orphans === 1 ? '' : 's'}, ${summary.modeGates} mode-gate${summary.modeGates === 1 ? '' : 's'}`);
-        return;
-      }
-
-      // Apply resolutions
       for (const [sessionId, cwd] of entries) {
         if (!existsSync(statePath(cwd, sessionId))) continue;
         const sessionZombies = allZombies.filter(z => z.sessionId === sessionId);

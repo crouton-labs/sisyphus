@@ -10,23 +10,25 @@ type State = typeof VALID_STATES[number];
 
 export function registerSessionDangerous(program: Command): void {
   program
-    .command('dangerous [sessionId] [state]')
-    .description("Toggle dangerous mode (auto-accept first option for every ask). state: on|off|toggle (default: toggle)")
+    .command('dangerous [sessionId]')
+    .description('Toggle dangerous mode (auto-accept first option for every ask)')
+    .option('--state <state>', 'on|off|toggle', 'toggle')
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis session config dangerous                 # toggle current session's mode
-  $ sis session config dangerous sess-7f2a on
-  $ sis session config dangerous sess-7f2a off --json
+Input:
+  [sessionId]    Session to modify (defaults to SISYPHUS_SESSION_ID).
+  --state        on|off|toggle — desired dangerous-mode state (default: toggle).
 
-Output:
-  Default       "DANGEROUS mode {ON|OFF} for session <id>" + flushed-ask count.
-  --json        { ok, schema_version: 1, data: { sessionId, enabled, flushed } }
+Output (stdout, JSON)
+  ok, schema_version: 1, data: { sessionId, enabled, flushed }
+
+Effects:
+  Sets dangerousMode on the session; flushes any pending asks if enabling.
 
 Exit codes: 0 ok | 2 usage (bad state) | 3 not_found.`,
     )
-    .action(async (sessionIdArg?: string, stateArg?: string) => {
+    .action(async (sessionIdArg?: string, opts: { state: string } = { state: 'toggle' }) => {
       let sessionId: string;
       if (sessionIdArg) {
         sessionId = sessionIdArg;
@@ -38,19 +40,14 @@ Exit codes: 0 ok | 2 usage (bad state) | 3 not_found.`,
         });
       }
 
-      let state: State;
-      if (!stateArg) {
-        state = 'toggle';
-      } else {
-        const stateInput = stateArg.toLowerCase();
-        if (!VALID_STATES.includes(stateInput as State)) {
-          exitUsage('bad_state', `state must be one of: ${VALID_STATES.join(', ')}`, {
-            received: stateArg,
-            expected: [...VALID_STATES],
-          });
-        }
-        state = stateInput as State;
+      const stateInput = opts.state.toLowerCase();
+      if (!VALID_STATES.includes(stateInput as State)) {
+        exitUsage('bad_state', `--state must be one of: ${VALID_STATES.join(', ')}`, {
+          received: opts.state,
+          expected: [...VALID_STATES],
+        });
       }
+      const state = stateInput as State;
 
       let enabled: boolean;
       if (state === 'toggle') {
@@ -77,12 +74,6 @@ Exit codes: 0 ok | 2 usage (bad state) | 3 not_found.`,
       if (!response.ok) exitError(response.error);
       const flushedRaw = response.data?.flushed;
       const flushed = typeof flushedRaw === 'number' ? flushedRaw : 0;
-      if (emitJsonOk({ sessionId, enabled, flushed })) return;
-      const label = enabled ? 'ON' : 'OFF';
-      let msg = `DANGEROUS mode ${label} for session ${sessionId}`;
-      if (enabled && flushed > 0) {
-        msg += ` — ${flushed} pending ask${flushed === 1 ? '' : 's'} auto-resolved`;
-      }
-      console.log(msg);
+      emitJsonOk({ sessionId, enabled, flushed }); return;
     });
 }

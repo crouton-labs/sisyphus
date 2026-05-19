@@ -11,7 +11,7 @@ test_tmux_installed() {
 }
 
 test_setup_keybind() {
-  sisyphus admin setup-keybind >/dev/null 2>&1
+  sis admin setup-keybind >/dev/null 2>&1
   assert_file_exists "keybind-scripts-cycle" "$HOME/.sisyphus/bin/sisyphus-cycle"
   assert_file_exists "keybind-scripts-home" "$HOME/.sisyphus/bin/sisyphus-home"
   assert_file_exists "keybind-scripts-kill" "$HOME/.sisyphus/bin/sisyphus-kill-pane"

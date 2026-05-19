@@ -96,5 +96,5 @@ if [ -n "$PENDING" ] && [ "$PENDING" != "0" ]; then
 fi
 
 cat <<'EOF'
-{"decision":"block","reason":"You have not submitted your final report. You MUST submit before stopping:\n\necho \"your full report here\" | sisyphus agent submit\n\nInclude: what you did, what you found, exact file paths and line numbers, and verification results if applicable."}
+{"decision":"block","reason":"You have not submitted your final report. You MUST submit before stopping:\n\necho \"your full report here\" | sis agent submit\n\nInclude: what you did, what you found, exact file paths and line numbers, and verification results if applicable."}
 EOF

@@ -860,7 +860,7 @@ async function handleRequest(req: Request): Promise<Response> {
           return {
             ok: false,
             error: errConflict('handoff_already_queued', {
-              message: `Session ${req.sessionId} already has a queued handoff. Pass --force to override or --cancel to clear.`,
+              message: `Session ${req.sessionId} already has a queued handoff. Pass --force to override or run \`sis cloud handoff cancel ${req.sessionId}\` to clear.`,
               received: req.sessionId,
             }),
           };

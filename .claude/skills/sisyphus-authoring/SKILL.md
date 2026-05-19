@@ -95,9 +95,9 @@ Sisyphus agent prompts follow a distinct philosophy — **narrow scope, defensiv
 
 After dropping a new file:
 
-1. Restart the daemon: `sisyphus admin daemon restart` (the daemon caches plugin layers per session).
+1. Restart the daemon: `sis admin daemon restart` (the daemon caches plugin layers per session).
 2. Spawn an affected agent (or open the orchestrator) and inspect the rendered plugin in the session prompts dir: `cat .sisyphus/sessions/<id>/prompts/<agent>-plugin/hooks/hooks.json` shows the merged hook manifest, and `ls` of the same dir shows which scripts/skills got copied.
-3. For agent types: `sisyphus agent spawn --type=<your-type> ...` will fail loudly if discovery missed your file.
+3. For agent types: `sis agent spawn --type=<your-type> ...` will fail loudly if discovery missed your file.
 4. For modes: the orchestrator's system prompt lists available modes under `{{ORCHESTRATOR_MODES}}` — if your mode isn't there, check the filename pattern (`orchestrator-<name>.md`, no underscores, lowercase) and `description` frontmatter.
 
 ## Reference files

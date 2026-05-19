@@ -70,11 +70,11 @@ This is a breaking change — existing flat-format `worktree.json` files must be
 
 ### Agent Repo Targeting
 
-`sisyphus agent spawn` gains a `--repo <name>` option:
+`sis agent spawn` gains a `--repo <name>` option:
 
 ```bash
-sisyphus agent spawn --name "impl-api" --repo backend "Add REST endpoints"
-sisyphus agent spawn --name "impl-api" --repo backend --worktree "Add REST endpoints"
+sis agent spawn --name "impl-api" --repo backend "Add REST endpoints"
+sis agent spawn --name "impl-api" --repo backend --worktree "Add REST endpoints"
 ```
 
 **`--repo` behavior:**

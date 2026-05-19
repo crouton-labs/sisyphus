@@ -8,28 +8,27 @@ export function registerDelete(program: Command): void {
   program
     .command('delete <sessionId>')
     .description('Delete a session and all its data (state.json, logs, panes)')
-    .option('--cwd <path>', 'Project directory', process.env.SISYPHUS_CWD || process.cwd())
+    .option('--cwd <path>', 'Project directory (default: $SISYPHUS_CWD or cwd)')
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis session lifecycle delete sess-7f2a
-  $ sis session lifecycle delete sess-7f2a --cwd /path/to/project --json
+Input
+  <sessionId>        required. Session to delete.
+  --cwd <path>       optional. Project directory; defaults to $SISYPHUS_CWD or cwd.
 
-Output:
-  Default       "Session <id> deleted." on stdout.
-  --json        { ok, schema_version: 1, data: { sessionId } }
+Output (stdout, JSON, schema_version: 1)
+  ok, schema_version: 1, data: { sessionId }
 
-Exit codes: 0 ok | 3 not_found | 5 conflict (session still running — kill first).
+Effects
+  Permanently removes state.json, logs, and all pane records for the session.
 
-Next on success:
-  $ sis session inspect list --all            # confirm removal`,
+Exit codes: 0 ok | 3 not_found | 5 conflict (session still running — kill first).`,
     )
-    .action(async (sessionId: string, opts: { cwd: string }) => {
-      const request: Request = { type: 'delete', sessionId, cwd: opts.cwd };
+    .action(async (sessionId: string, opts: { cwd?: string }) => {
+      const cwd = opts.cwd ?? process.env.SISYPHUS_CWD ?? process.cwd();
+      const request: Request = { type: 'delete', sessionId, cwd };
       const response = await sendRequest(request);
       if (!response.ok) exitError(response.error);
-      if (emitJsonOk({ sessionId })) return;
-      console.log(`Session ${sessionId} deleted.`);
+      emitJsonOk({ sessionId }); return;
     });
 }

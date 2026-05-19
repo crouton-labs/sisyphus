@@ -65,7 +65,7 @@ The body is the agent's system prompt. Sisyphus agent prompts have a distinct sh
 
 1. **Identity (one paragraph).** "You are X. Your one job is Y." Don't expand the scope here — narrowing is the whole point.
 2. **Inputs.** What the agent receives in its task instruction (which files to read, what context dir, what artifacts the orchestrator will have produced).
-3. **Outputs.** What `sisyphus agent submit` should contain. Be specific — "summary of findings" is too loose; "a markdown table of issues with file:line references and severity" is right.
+3. **Outputs.** What `sis agent submit` should contain. Be specific — "summary of findings" is too loose; "a markdown table of issues with file:line references and severity" is right.
 4. **Hard rules.** Things the agent must not do (write outside the context dir, edit production code, exceed N files). Use imperative voice for non-negotiables.
 5. **Bail-and-report cues.** When to stop and report unexpected complexity rather than power through. This is load-bearing — without it, agents over-extend silently.
 6. **Tools available, briefly.** Don't recapitulate the Claude Code tool docs — the agent already has them. Mention only sisyphus-specific commands (`sis agent spawn`, `sis ask`).
@@ -179,7 +179,7 @@ You receive:
 
 ## Outputs
 
-`sisyphus agent submit` a markdown report with three sections:
+`sis agent submit` a markdown report with three sections:
 
 1. **Drift** — places where merged code diverges from the spec or roadmap, with `file:line` references.
 2. **Untracked TODOs** — `TODO`/`FIXME`/`XXX` comments added during the cycle that weren't captured in the roadmap.
@@ -206,7 +206,7 @@ If you find evidence of an incomplete implementation (half-finished functions, s
 
 ## Common authoring mistakes
 
-- **Setting `interactive: true` on a non-interactive agent.** This drops the Stop hook, which means the agent can exit without calling `sisyphus agent submit` and the orchestrator never sees a final report.
+- **Setting `interactive: true` on a non-interactive agent.** This drops the Stop hook, which means the agent can exit without calling `sis agent submit` and the orchestrator never sees a final report.
 - **Specifying tools the agent already has.** Claude Code's standard tool docs are loaded automatically — listing Read/Write/Bash in the body wastes tokens.
 - **Restating sisyphus runtime context.** The bundled `agent-suffix.md` already tells the agent how to submit reports, where the context dir is, etc. Don't duplicate.
 - **Hardcoding paths instead of using `$SISYPHUS_*`.** A hardcoded path will silently work for one session and break for the next.

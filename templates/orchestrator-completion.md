@@ -42,10 +42,10 @@ Use tables, diagrams, and structured markdown freely — the deck below renders 
 
 Submit a structured deck pointing at `completion-summary.md` via `bodyPath`. **NEVER call `sis session lifecycle complete` until the user picks `approve`.**
 
-Run `echo '{"name":"sisyphus/humanloop"}' | crtr skill read show` for option design and submission flow (output JSON has `.content`). The completion deck is the canonical four-branch sign-off — `approve` / `minor` / `moderate` / `major` — each routes to a different recovery (see "Handle Feedback" below). Use `bodyPath: "../completion-summary.md"` so the user reviews the rendered summary inside the deck.
+Run `sis ask deck submit -h` for submission flow. The completion deck is the canonical four-branch sign-off — `approve` / `minor` / `moderate` / `major` — each routes to a different recovery (see "Handle Feedback" below). Use `bodyPath: "../completion-summary.md"` so the user reviews the rendered summary inside the deck.
 
 ```bash
-result=$(sis ask submit "$deck")
+result=$(sis ask deck submit "$deck")
 choice=$(echo "$result" | jq -r '.responses[0].selectedOptionId')
 notes=$(echo "$result"  | jq -r '.responses[0].freetext // ""')
 ```

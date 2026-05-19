@@ -73,7 +73,7 @@ export function mountReviewActionPanel(opts: MountReviewPanelOpts): ReviewAction
     // Open the review file in an editor inside a tmux popup.
     // Uses the running sis binary: process.argv[1]
     const sisBin = process.argv[1]!;
-    const cmd = `${shellQuote(sisBin)} ask review-open ${shellQuote(opts.askId)} --session ${shellQuote(opts.sessionId)}`;
+    const cmd = `${shellQuote(sisBin)} ask review open ${shellQuote(opts.askId)} --session ${shellQuote(opts.sessionId)}`;
     execSync(
       `tmux display-popup -E -w 90% -h 90% -d ${shellQuote(opts.cwd)} ${shellQuote(cmd)}`,
       { stdio: 'inherit', env: EXEC_ENV },
@@ -84,7 +84,7 @@ export function mountReviewActionPanel(opts: MountReviewPanelOpts): ReviewAction
   function invokeSubmit(): void {
     const sisBin = process.argv[1]!;
     execSync(
-      `${shellQuote(sisBin)} ask review-submit ${shellQuote(opts.askId)} --session ${shellQuote(opts.sessionId)}`,
+      `${shellQuote(sisBin)} ask review complete ${shellQuote(opts.askId)} --session ${shellQuote(opts.sessionId)}`,
       { stdio: 'inherit', cwd: opts.cwd, env: EXEC_ENV },
     );
     opts.onAfterAction();

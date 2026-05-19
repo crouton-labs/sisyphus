@@ -38,7 +38,7 @@ description: Audit a finished session for drift and follow-ups. Use after valida
 ---
 ```
 
-The `name` field is what the orchestrator transitions to (`sisyphus orch yield --mode post-run-audit`). It must be a single token — lowercase, hyphens, no spaces. Defaults to the filename stem if omitted.
+The `name` field is what the orchestrator transitions to (`sis orch yield --mode post-run-audit`). It must be a single token — lowercase, hyphens, no spaces. Defaults to the filename stem if omitted.
 
 The `description` is what other modes/agents read in the orchestrator's `{{ORCHESTRATOR_MODES}}` listing. **Front-load the entry condition** ("Use after X has happened…") because that's the trigger signal the previous mode reads.
 
@@ -117,7 +117,7 @@ If you find yourself wanting to add a builder for templating, prefer using `$SIS
 
 ## Mode discovery and the daemon cache
 
-The daemon discovers modes when the orchestrator spawns. Layered scan: project > user > bundled. Drop a new file and **restart the daemon** (`sisyphus admin daemon restart`) — the next orchestrator cycle will see the new mode.
+The daemon discovers modes when the orchestrator spawns. Layered scan: project > user > bundled. Drop a new file and **restart the daemon** (`sis admin daemon restart`) — the next orchestrator cycle will see the new mode.
 
 To verify discovery worked, look at `.sisyphus/sessions/<id>/prompts/orchestrator-system-N.md` — the rendered system prompt should list your mode under `{{ORCHESTRATOR_MODES}}`.
 

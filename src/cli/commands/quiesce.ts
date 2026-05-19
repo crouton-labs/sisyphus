@@ -19,17 +19,17 @@ export function registerQuiesce(parent: Command): void {
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis session recover quiesce sess-7f2a
-  $ sis session recover quiesce sess-7f2a --force --json
+Input
+  <session-id>       required. Session to pause.
+  --force            optional. Interrupt running orchestrator/agents immediately.
 
-When NOT to use:
-  Use \`sis cloud handoff pull\` if you want to pull a cloud-running session back
-  to local. \`quiesce\` only pauses; it does not transport state.
+Output (stdout, JSON, schema_version: 1)
+  ok, schema_version: 1, data: { sessionId, force, queued }
 
-Output:
-  Default       Prose line indicating queued vs. immediate pause.
-  --json        { ok, schema_version: 1, data: { sessionId, force, queued } }
+Effects
+  Signals the session to halt at its next quiesce point, leaving it paused in place.
+  With --force, interrupts immediately rather than waiting for the next safe point.
+  Does not transport state — use \`sis cloud handoff pull\` to move state.
 
 Exit codes: 0 ok | 3 not_found | 5 conflict (session on cloud — use reclaim).`,
     )
@@ -46,11 +46,6 @@ Exit codes: 0 ok | 3 not_found | 5 conflict (session on cloud — use reclaim).`
       const data = response.data as { queued?: boolean; force?: boolean } | undefined;
       const force = data?.force === true;
       const queued = data?.queued === true;
-      if (emitJsonOk({ sessionId, force, queued })) return;
-      if (force) {
-        console.log(`Session ${sessionId} quiescing now (--force).`);
-      } else {
-        console.log(`Session ${sessionId} will pause at next quiesce point.`);
-      }
+      emitJsonOk({ sessionId, force, queued }); return;
     });
 }

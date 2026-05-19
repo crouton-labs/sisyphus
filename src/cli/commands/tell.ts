@@ -1,6 +1,6 @@
-import { readFileSync } from 'node:fs';
 import type { Command } from 'commander';
 import { sendRequest } from '../client.js';
+import { readStdin } from '../stdin.js';
 import type { Request } from '../../shared/protocol.js';
 import type { MessageSource } from '../../shared/types.js';
 import { exitError, exitUsage } from '../errors.js';
@@ -8,9 +8,9 @@ import { emitJsonOk } from '../output.js';
 
 interface TellOptions {
   session?: string;
-  // Commander exposes `--no-submit` as `opts.submit`, defaulting to true.
-  submit?: boolean;
+  pasteOnly?: boolean;
   stdin?: boolean;
+  message?: string;
 }
 
 /**
@@ -28,10 +28,6 @@ export function normalizeAgentId(raw: string): string {
   });
 }
 
-function readStdinSync(): string {
-  return readFileSync(0, 'utf-8');
-}
-
 function runTell(
   target: { kind: 'orchestrator' } | { kind: 'agent'; agentId: string },
   text: string,
@@ -42,7 +38,7 @@ function runTell(
       ? { type: 'agent' as const, agentId: process.env.SISYPHUS_AGENT_ID }
       : undefined;
 
-    const submit = opts.submit !== false;
+    const submit = opts.pasteOnly !== true;
     const request: Request = {
       type: 'tell',
       sessionId: opts.sessionId,
@@ -55,96 +51,101 @@ function runTell(
     if (!response.ok) exitError(response.error);
 
     const targetLabel = target.kind === 'orchestrator' ? 'orchestrator' : target.agentId;
-    if (emitJsonOk({ target: targetLabel, submit })) return;
-    console.log(`Sent to ${targetLabel}${submit ? '' : ' (not submitted)'}`);
+    emitJsonOk({ target: targetLabel, submit }); return;
   })();
 }
 
-async function resolveTextFromOpts(textArg: string | undefined, opts: TellOptions): Promise<string> {
+async function resolveTextFromOpts(opts: TellOptions): Promise<string> {
   if (opts.stdin) {
-    const text = readStdinSync();
-    if (text === '') {
+    const text = await readStdin({ force: true });
+    if (!text) {
       exitUsage('empty_stdin', '--stdin set but stdin was empty', {
         next: 'pipe content: `echo "..." | sis orch tell --stdin`',
       });
     }
-    if (textArg != null && textArg !== '') {
-      exitUsage('stdin_conflict', '--stdin conflicts with [text] argument; pass one source', {
-        received: { stdin: true, text: textArg },
+    if (opts.message != null && opts.message !== '') {
+      exitUsage('stdin_conflict', '--stdin conflicts with --message; pass one source', {
+        received: { stdin: true, message: opts.message },
       });
     }
     return text;
   }
-  if (textArg == null || textArg === '') {
-    exitUsage('missing_text', 'provide [text] argument or use --stdin', {
-      next: 'sis orch tell "your text" — or sis orch tell --stdin <prompt.md',
+  if (opts.message == null || opts.message === '') {
+    exitUsage('missing_text', 'provide --message or use --stdin', {
+      next: 'sis orch tell --message "your text" — or sis orch tell --stdin <prompt.md',
     });
   }
-  return textArg;
+  return opts.message;
 }
 
 export function registerOrchTell(parent: Command): void {
   parent
-    .command('tell [text]')
+    .command('tell')
     .description('Type a prompt directly into the orchestrator pane. Submits immediately unlike `message`.')
+    .option('--message <text>', 'Text to type into the orchestrator pane')
     .option('--session <sessionId>', 'Session ID (defaults to SISYPHUS_SESSION_ID)')
-    .option('--no-submit', 'Paste text but do not press Enter (caller can review/submit manually)')
-    .option('--stdin', 'Read prompt body from stdin instead of the [text] argument (avoids shell escaping)')
+    .option('--paste-only', 'Paste text but do not press Enter (caller can review/submit manually)')
+    .option('--stdin', 'Read prompt body from stdin instead of --message (avoids shell escaping)')
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis orch tell "reset the focus to the auth module"
-  $ cat prompt.md | sis orch tell --stdin --no-submit
+orch tell: type a prompt directly into the orchestrator pane and optionally submit it.
 
-When NOT to use:
-  Use \`sis orch message\` to queue a message that the orchestrator sees on its
-  next cycle (vs \`tell\` which types it now). Use \`sis ask submit\` to actively
-  block waiting for a structured reply.
+Input
+  --message <text>   required (or --stdin). Text to type into the orchestrator pane.
+  --stdin            optional. Read text from stdin instead of --message (avoids shell escaping).
+  --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
+  --paste-only       optional. Paste without pressing Enter; caller submits manually.
 
-Output:
-  Default       "Sent to orchestrator" on stdout.
-  --json        { ok, schema_version: 1, data: { target, submit } }
+Output (stdout, JSON)
+  ok, schema_version: 1, data: { target, submit }
+
+Effects
+  Types text into the orchestrator tmux pane and optionally submits it.
 
 Exit codes: 0 ok | 2 usage (missing text) | 3 not_found (unknown session) | 5 conflict (not running).`,
     )
-    .action(async (textArg: string | undefined, opts: TellOptions) => {
+    .action(async (opts: TellOptions) => {
       const sessionId = opts.session ?? process.env.SISYPHUS_SESSION_ID;
       if (!sessionId) {
         exitUsage('missing_session_id', 'Provide --session or set SISYPHUS_SESSION_ID', {
           next: 'export SISYPHUS_SESSION_ID=<sessionId> or pass --session <sessionId>',
         });
       }
-      const text = await resolveTextFromOpts(textArg, opts);
+      const text = await resolveTextFromOpts(opts);
       await runTell({ kind: 'orchestrator' }, text, { ...opts, sessionId });
     });
 }
 
 export function registerAgentTell(parent: Command): void {
   parent
-    .command('tell <id> [text]')
+    .command('tell <id>')
     .description('Type a prompt directly into an agent pane (agent-NNN). Submits immediately unlike `message`.')
+    .option('--message <text>', 'Text to type into the agent pane')
     .option('--session <sessionId>', 'Session ID (defaults to SISYPHUS_SESSION_ID)')
-    .option('--no-submit', 'Paste text but do not press Enter (caller can review/submit manually)')
-    .option('--stdin', 'Read prompt body from stdin instead of the [text] argument (avoids shell escaping)')
+    .option('--paste-only', 'Paste text but do not press Enter (caller can review/submit manually)')
+    .option('--stdin', 'Read prompt body from stdin instead of --message (avoids shell escaping)')
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis agent io tell agent-3 "switch to investigation mode"
-  $ sis agent io tell 3 "switch to investigation mode"
-  $ cat prompt.md | sis agent io tell agent-3 --stdin --no-submit
+agent io tell: type a prompt directly into an agent pane and optionally submit it.
 
-When NOT to use:
-  Use \`sis ask submit\` to actively block waiting for a structured reply.
+Input
+  <id>               required. Agent ID: agent-NNN or bare number (e.g. 3 → agent-3).
+  --message <text>   required (or --stdin). Text to type into the agent pane.
+  --stdin            optional. Read text from stdin instead of --message (avoids shell escaping).
+  --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
+  --paste-only       optional. Paste without pressing Enter; caller submits manually.
 
-Output:
-  Default       "Sent to <agent>" on stdout.
-  --json        { ok, schema_version: 1, data: { target, submit } }
+Output (stdout, JSON)
+  ok, schema_version: 1, data: { target, submit }
+
+Effects
+  Types text into the agent tmux pane and optionally submits it.
 
 Exit codes: 0 ok | 2 usage (bad target / missing text) | 3 not_found (unknown session/agent) | 5 conflict (agent not running).`,
     )
-    .action(async (idRaw: string, textArg: string | undefined, opts: TellOptions) => {
+    .action(async (idRaw: string, opts: TellOptions) => {
       const sessionId = opts.session ?? process.env.SISYPHUS_SESSION_ID;
       if (!sessionId) {
         exitUsage('missing_session_id', 'Provide --session or set SISYPHUS_SESSION_ID', {
@@ -152,7 +153,7 @@ Exit codes: 0 ok | 2 usage (bad target / missing text) | 3 not_found (unknown se
         });
       }
       const agentId = normalizeAgentId(idRaw);
-      const text = await resolveTextFromOpts(textArg, opts);
+      const text = await resolveTextFromOpts(opts);
       await runTell({ kind: 'agent', agentId }, text, { ...opts, sessionId });
     });
 }

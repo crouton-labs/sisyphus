@@ -115,7 +115,10 @@ describe('requirements export', () => {
 
   it('renders deterministic markdown from requirements.json', () => {
     const firstStdout = runRequirementsExport(requirementsPath).toString('utf-8').trim();
-    assert.equal(firstStdout, markdownPath);
+    const firstEnvelope = JSON.parse(firstStdout);
+    assert.equal(firstEnvelope.ok, true, 'expected ok envelope on stdout');
+    assert.equal(firstEnvelope.schema_version, 1);
+    assert.equal(firstEnvelope.data?.path, markdownPath);
 
     const firstRender = readFileSync(markdownPath, 'utf-8');
 
@@ -146,16 +149,16 @@ describe('requirements export', () => {
       () => runRequirementsExport(requirementsPath),
       (error: unknown) => {
         assert.ok(error instanceof Error);
-        const execError = error as Error & { status?: number; stderr?: Buffer };
+        const execError = error as Error & { status?: number; stdout?: Buffer };
         assert.equal(execError.status, 2);
-        assert.match(
-          execError.stderr?.toString('utf-8') ?? '',
-          /has been hand-edited \(differs from rendered output\)/,
-        );
-        assert.match(
-          execError.stderr?.toString('utf-8') ?? '',
-          /--export --force/,
-        );
+        const rawStdout = execError.stdout?.toString('utf-8');
+        assert.ok(rawStdout, 'expected JSON envelope on stdout');
+        const envelope = JSON.parse(rawStdout);
+        assert.equal(envelope.ok, false);
+        assert.ok(envelope.error?.message, 'expected error.message in envelope');
+        assert.match(envelope.error.message, /has been hand-edited \(differs from rendered output\)/);
+        assert.ok(envelope.error?.next, 'expected error.next in envelope');
+        assert.match(envelope.error.next, /--export --force/);
         return true;
       },
     );

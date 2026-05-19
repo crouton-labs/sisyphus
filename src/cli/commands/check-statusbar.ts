@@ -415,13 +415,26 @@ export function registerCheckStatusbar(program: Command): void {
   program
     .command('check-statusbar')
     .description('Inspect tmux statusbar state and emit a Claude decision tree for non-clobbering integration')
-    .option('--json', 'Print raw JSON state instead of Claude instructions')
-    .action((opts: { json?: boolean }) => {
+    .addHelpText(
+      'after',
+      `
+check-statusbar: inspect tmux statusbar state and emit an agent decision tree for non-clobbering integration.
+
+Input
+  (no options)
+
+Output (stdout, plain text — agent decision tree embedded in <claude-instructions> tags; not a JSON envelope)
+  Environment data snapshot (tmux install/server state, daemon state, live status-left/right values,
+  user conf state, sisyphus config summary).
+  Decision tree (Paths A–F) indicating how to integrate or configure the sisyphus statusbar.
+
+Effects
+  Read-only: probes tmux options, reads ~/.tmux.conf and ~/.sisyphus/config.json. No writes.
+
+Exit codes: 0 ok`,
+    )
+    .action(() => {
       const result = runCheck();
-      if (opts.json) {
-        console.log(JSON.stringify(result, null, 2));
-        return;
-      }
       printInstructions(result);
     });
 }

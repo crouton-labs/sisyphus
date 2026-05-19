@@ -1030,6 +1030,26 @@ export function registerGettingStarted(parent: Command, root: Command): void {
     .description('Interactive tutorial (best with Claude Code)')
     .option('--tutorial <step>', 'Tutorial step (0-5)', parseInt)
     .option('--explain', 'Comprehensive reference for how sisyphus works')
+    .addHelpText(
+      'after',
+      `
+guide: interactive onboarding tutorial for sisyphus (best experienced inside Claude Code).
+
+Input
+  --tutorial <step>    optional — jump to a specific tutorial step; must be 0-5 (integer).
+  --explain            optional boolean — print the comprehensive sisyphus reference
+                       instead of the tutorial.
+
+Output (stdout, plain text — human-readable guide, not JSON)
+  Prints <claude-instructions> blocks the Claude Code agent interprets and
+  presents interactively. Falls back to a short "open Claude Code first" message
+  when run outside a Claude Code session.
+
+Effects
+  None. Read-only. Prints to stdout.
+
+Exit codes: 0 ok | 2 usage (invalid --tutorial value)`,
+    )
     .action((opts) => {
       if (opts.explain) {
         printExplain(root);

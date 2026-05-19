@@ -6,7 +6,6 @@ import { sendRequest } from '../client.js';
 import type { Request } from '../../shared/protocol.js';
 import type { Session, OrchestratorCycle } from '../../shared/types.js';
 import { exitError, exitUsage } from '../errors.js';
-import { isJsonMode } from '../output.js';
 import { normalizeAgentId } from './tell.js';
 
 interface ReadOptions {
@@ -14,27 +13,14 @@ interface ReadOptions {
   cycle?: string;
   tail?: string;
   head?: string;
-  raw?: boolean;
-  summary?: boolean;
-  toolDetail?: boolean;
 }
 
-const ORCH_ALIASES = new Set(['orchestrator', 'orch', 'o']);
 const TURN_TYPES = new Set(['user', 'assistant']);
 
 interface JsonlEntry {
   type?: string;
   timestamp?: string;
   message?: { role?: string; content?: unknown };
-}
-
-interface ContentBlock {
-  type?: string;
-  text?: string;
-  thinking?: string;
-  name?: string;
-  input?: unknown;
-  content?: unknown;
 }
 
 function projectDirFromCwd(cwd: string): string {
@@ -46,66 +32,8 @@ function transcriptPath(cwd: string, claudeSessionId: string): string {
   return join(homedir(), '.claude', 'projects', projectDirFromCwd(cwd), `${claudeSessionId}.jsonl`);
 }
 
-function truncate(s: string, max: number): string {
-  if (s.length <= max) return s;
-  return s.slice(0, max) + `… (${s.length - max} more chars)`;
-}
-
-function formatBlocks(content: unknown, toolDetail: boolean): string {
-  if (typeof content === 'string') return content;
-  if (!Array.isArray(content)) return JSON.stringify(content);
-  const parts: string[] = [];
-  for (const block of content as ContentBlock[]) {
-    switch (block.type) {
-      case 'text':
-        parts.push(block.text ?? '');
-        break;
-      case 'thinking':
-        parts.push(`[thinking]\n${block.thinking ?? ''}`);
-        break;
-      case 'tool_use': {
-        const inputStr = JSON.stringify(block.input ?? {});
-        parts.push(`[tool_use: ${block.name}] ${toolDetail ? inputStr : truncate(inputStr, 400)}`);
-        break;
-      }
-      case 'tool_result': {
-        const c = typeof block.content === 'string' ? block.content : JSON.stringify(block.content ?? '');
-        parts.push(`[tool_result]\n${toolDetail ? c : truncate(c, 600)}`);
-        break;
-      }
-      default:
-        parts.push(`[${block.type ?? 'unknown'}] ${truncate(JSON.stringify(block), 200)}`);
-    }
-  }
-  return parts.join('\n');
-}
-
-function summaryLine(entry: JsonlEntry): string {
-  const role = (entry.type ?? '?').toUpperCase().padEnd(9);
-  const ts = (entry.timestamp ?? '').slice(11, 19);
-  const content = entry.message?.content;
-  let preview = '';
-  if (typeof content === 'string') {
-    preview = content.replace(/\s+/g, ' ').slice(0, 120);
-  } else if (Array.isArray(content)) {
-    const blocks = content as ContentBlock[];
-    const first = blocks[0];
-    if (!first) preview = '(empty)';
-    else if (first.type === 'text') preview = (first.text ?? '').replace(/\s+/g, ' ').slice(0, 120);
-    else if (first.type === 'thinking') preview = `[thinking] ${(first.thinking ?? '').replace(/\s+/g, ' ').slice(0, 100)}`;
-    else if (first.type === 'tool_use') preview = `[${first.name}] ${truncate(JSON.stringify(first.input ?? {}), 100)}`;
-    else if (first.type === 'tool_result') {
-      const c = typeof first.content === 'string' ? first.content : JSON.stringify(first.content ?? '');
-      preview = `[tool_result] ${c.replace(/\s+/g, ' ').slice(0, 100)}`;
-    } else preview = `[${first.type ?? '?'}]`;
-    if (blocks.length > 1) preview += ` (+${blocks.length - 1} more block${blocks.length - 1 > 1 ? 's' : ''})`;
-  }
-  return `${role} ${ts}  ${preview}`;
-}
-
 async function emitTranscript(
   claudeSessionId: string,
-  label: string,
   sessionCwd: string,
   opts: ReadOptions,
 ): Promise<void> {
@@ -120,23 +48,6 @@ async function emitTranscript(
   }
 
   const raw = readFileSync(path, 'utf-8');
-  const json = isJsonMode();
-
-  if (json && opts.raw) {
-    exitUsage('flag_conflict', '--json and --raw are mutually exclusive', {
-      expected: 'one of: --json, --raw',
-    });
-  }
-  if (json && opts.summary) {
-    exitUsage('flag_conflict', '--json and --summary are mutually exclusive', {
-      expected: 'one of: --json, --summary',
-    });
-  }
-
-  if (opts.raw) {
-    process.stdout.write(raw);
-    return;
-  }
 
   const allEntries: JsonlEntry[] = raw
     .split('\n')
@@ -146,45 +57,21 @@ async function emitTranscript(
 
   let entries = allEntries.filter(e => e.type && TURN_TYPES.has(e.type));
 
-  const totalTurns = entries.length;
   const head = opts.head ? parseInt(opts.head, 10) : undefined;
   const tail = opts.tail ? parseInt(opts.tail, 10) : undefined;
-  let sliceNote = '';
   if (head && Number.isFinite(head)) {
     entries = entries.slice(0, head);
-    sliceNote = `first ${head} of ${totalTurns}`;
   }
   if (tail && Number.isFinite(tail)) {
     entries = entries.slice(-tail);
-    sliceNote = sliceNote ? `${sliceNote}, then last ${tail}` : `last ${tail} of ${totalTurns}`;
-  }
-
-  if (json) {
-    for (const e of entries) {
-      process.stdout.write(JSON.stringify({
-        role: e.type,
-        timestamp: e.timestamp,
-        content: e.message?.content,
-      }) + '\n');
-    }
-    return;
-  }
-
-  console.log(`=== ${label} — ${entries.length} turn(s)${sliceNote ? ` (${sliceNote})` : ''} ===`);
-  console.log(`transcript: ${path}\n`);
-
-  if (opts.summary) {
-    for (const e of entries) console.log(summaryLine(e));
-    return;
   }
 
   for (const e of entries) {
-    const role = (e.type ?? '?').toUpperCase();
-    const ts = e.timestamp ?? '';
-    const body = formatBlocks(e.message?.content, opts.toolDetail ?? false);
-    console.log(`──── ${role} ${ts} ────`);
-    console.log(body);
-    console.log('');
+    process.stdout.write(JSON.stringify({
+      role: e.type,
+      timestamp: e.timestamp,
+      content: e.message?.content,
+    }) + '\n');
   }
 }
 
@@ -211,26 +98,24 @@ export function registerOrchRead(parent: Command): void {
     .option('--cycle <n>', 'Orchestrator cycle number (default: most recent live, else last completed)')
     .option('--tail <n>', 'Show last N turns', undefined)
     .option('--head <n>', 'Show first N turns', undefined)
-    .option('--raw', 'Print raw JSONL (no formatting, no filtering) — orthogonal to --json')
-    .option('--summary', 'One-line-per-turn summary instead of full content')
-    .option('--tool-detail', 'Include full tool inputs/outputs (default: truncated to 400/600 chars)')
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis orch read --tail 5
-  $ sis orch read --cycle 2 --json | jq -r '.content[0].text'
+orch read: print the Claude conversation transcript for the orchestrator.
 
-Output:
-  Default       Decorated transcript on stdout, header line + role-tagged blocks.
-  --json        JSONL on stdout, one object per turn: { role, timestamp, content }
-                (no \`{ok, schema_version}\` envelope — this is a stream, agents
-                consume turn-at-a-time).
-  --raw         Raw transcript JSONL from disk, unfiltered.
+Input
+  --session <sessionId>  optional — sisyphus session ID; defaults to SISYPHUS_SESSION_ID env var
+  --cycle <n>            optional — orchestrator cycle number; defaults to most recent live cycle, else last completed
+  --tail <n>             optional — emit only the last N turns
+  --head <n>             optional — emit only the first N turns
 
-Mutual exclusions:
-  --raw + --json     reject (exit 2)
-  --summary + --json reject (exit 2)
+Output (stdout, JSONL)
+  one JSON object per line; no {ok, schema_version} envelope (stream contract).
+  fields: { role: "user"|"assistant", timestamp: ISO-8601, content: message content }
+  ordered oldest-first within the selected cycle.
+
+Effects
+  None. Read-only.
 
 Exit codes: 0 ok | 2 usage | 3 not_found (session/cycle/transcript).`,
     )
@@ -284,7 +169,7 @@ Exit codes: 0 ok | 2 usage | 3 not_found (session/cycle/transcript).`,
         });
       }
 
-      await emitTranscript(claudeSessionId, label, session.cwd, opts);
+      await emitTranscript(claudeSessionId, session.cwd, opts);
     });
 }
 
@@ -295,24 +180,24 @@ export function registerAgentRead(parent: Command): void {
     .option('--session <sessionId>', 'Session ID (defaults to SISYPHUS_SESSION_ID)')
     .option('--tail <n>', 'Show last N turns', undefined)
     .option('--head <n>', 'Show first N turns', undefined)
-    .option('--raw', 'Print raw JSONL (no formatting, no filtering) — orthogonal to --json')
-    .option('--summary', 'One-line-per-turn summary instead of full content')
-    .option('--tool-detail', 'Include full tool inputs/outputs (default: truncated to 400/600 chars)')
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis agent io read agent-3 --summary
-  $ sis agent io read 3 --json | jq -r '.content[0].text'
+agent io read: print the Claude conversation transcript for an agent.
 
-Output:
-  Default       Decorated transcript on stdout, header line + role-tagged blocks.
-  --json        JSONL on stdout, one object per turn: { role, timestamp, content }
-  --raw         Raw transcript JSONL from disk, unfiltered.
+Input
+  <id>                   required — agent identifier; accepts agent-NNN, NNN, or agent-NNN shorthand
+  --session <sessionId>  optional — sisyphus session ID; defaults to SISYPHUS_SESSION_ID env var
+  --tail <n>             optional — emit only the last N turns
+  --head <n>             optional — emit only the first N turns
 
-Mutual exclusions:
-  --raw + --json     reject (exit 2)
-  --summary + --json reject (exit 2)
+Output (stdout, JSONL)
+  one JSON object per line; no {ok, schema_version} envelope (stream contract).
+  fields: { role: "user"|"assistant", timestamp: ISO-8601, content: message content }
+  ordered oldest-first.
+
+Effects
+  None. Read-only.
 
 Exit codes: 0 ok | 2 usage | 3 not_found (session/agent/transcript).`,
     )
@@ -351,6 +236,6 @@ Exit codes: 0 ok | 2 usage | 3 not_found (session/agent/transcript).`,
         });
       }
 
-      await emitTranscript(claudeSessionId, label, session.cwd, opts);
+      await emitTranscript(claudeSessionId, session.cwd, opts);
     });
 }

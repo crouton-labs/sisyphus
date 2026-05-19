@@ -28,6 +28,28 @@ export function registerConfigureUpload(program: Command): void {
     .description('Configure the upload proxy from a token-bearing URL (writes ~/.sisyphus/config.json)')
     .argument('[url]', 'Worker URL with embedded ?token= query (https://worker/upload?token=sisyphus_pat_...); omit to read from stdin')
     .option('--stdin', 'Read URL from stdin (pipe-friendly: pbpaste | sis admin report configure-upload --stdin)')
+    .addHelpText(
+      'after',
+      `
+configure-upload: write upload endpoint + token to ~/.sisyphus/config.json.
+
+Input
+  [url]      optional — Worker URL with embedded ?token=sisyphus_pat_... query param.
+             Omit to read interactively (TTY) or from stdin (non-TTY / --stdin).
+  --stdin    read URL from stdin; pipe-friendly: pbpaste | sis admin report configure-upload --stdin.
+
+Output (stdout, plain text — human maintenance op; not for agentic consumption)
+  ✓ upload configured (<path>) on success.
+  Error messages on validation failure.
+
+Effects
+  Parses and validates the URL and token prefix (must start with sisyphus_pat_).
+  Strips the token from the URL, writes { url, token } to the \`upload\` key in
+  ~/.sisyphus/config.json (mode 0600). Creates the directory if absent.
+  Warns if the URL is passed on argv (token exposed in ps / shell history).
+
+Exit codes: 0 ok | 1 validation or write error`,
+    )
     .action(async (urlArg: string | undefined, opts: { stdin?: boolean }) => {
       let rawUrl: string;
 

@@ -16,21 +16,22 @@ export function registerSubmit(program: Command): void {
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis agent submit --report "Found auth in src/middleware/auth.ts:42"
-  $ cat report.md | sis agent submit --stdin
+agent submit: deliver final work report and close the agent pane.
 
-When NOT to use:
-  Only sub-agents call submit. The orchestrator uses \`sis session lifecycle complete\`.
+Input
+  --report <text>    optional. Work report text; or pipe via stdin.
+  --stdin            optional. Force-read report from stdin (avoids shell escaping).
+  --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
+  stdin              optional. Piped input used as report when --report is omitted.
 
-Output:
-  Default       "Report submitted successfully" + close-pane notice on stdout.
-  --json        { ok, schema_version: 1, data: { sessionId, agentId } }
+Output (stdout, JSON)
+  ok, schema_version: 1, data: { sessionId, agentId }
 
-Exit codes: 0 ok | 2 usage (missing report or env) | 3 not_found.
+Effects
+  Persists the report, closes the agent pane, and signals the daemon. The orchestrator
+  resumes when all spawned agents have submitted.
 
-After this command the agent pane closes; the orchestrator resumes when all
-spawned agents have submitted.`,
+Exit codes: 0 ok | 2 usage (missing report, --session, or SISYPHUS_AGENT_ID) | 3 not_found.`,
     )
     .action(async (opts: { report?: string; stdin?: boolean; session?: string }) => {
       assertTmux();
@@ -68,8 +69,6 @@ spawned agents have submitted.`,
       const request: Request = { type: 'submit', sessionId, agentId, report };
       const response = await sendRequest(request);
       if (!response.ok) exitError(response.error);
-      if (emitJsonOk({ sessionId, agentId })) return;
-      console.log('Report submitted successfully');
-      console.log('Your pane will close. The orchestrator resumes when all agents finish.');
+      emitJsonOk({ sessionId, agentId }); return;
     });
 }

@@ -1,23 +1,12 @@
 import type { Command } from 'commander';
 import { basename, dirname, join } from 'node:path';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { sendRequest } from '../client.js';
 import { buildCompanionContextBlocks, renderContextDelta, renderFullContext, type CompanionContextBlocks } from '../../tui/lib/context.js';
 import { globalDir } from '../../shared/paths.js';
-import { renderCompanion } from '../../shared/companion-render.js';
-import { ACHIEVEMENTS } from '../../shared/companion-types.js';
-import type { CompanionState, CompanionMemoryState, ObservationCategory, ObservationRecord } from '../../shared/companion-types.js';
+import type { CompanionMemoryState, ObservationCategory, ObservationRecord } from '../../shared/companion-types.js';
 import { MemoryStoreParseError } from '../../shared/companion-types.js';
-import { createBadgeGallery, renderBadgeCard } from '../../shared/companion-badges.js';
 import { loadMemoryStrict, sanitizeForDisplay } from '../../daemon/companion-memory.js';
 import { showCommentaryPopup } from '../../daemon/companion-popup.js';
-
-const CATEGORY_LABELS: Record<string, string> = {
-  milestone: 'Milestone',
-  session: 'Session',
-  time: 'Time',
-  behavioral: 'Behavioral',
-};
 
 const CATEGORY_ORDER: Array<[ObservationCategory, string]> = [
   ['session-sentiments', 'Session Sentiments'],
@@ -95,108 +84,28 @@ export function renderMemory(state: CompanionMemoryState, repo?: string): string
 export function registerCompanion(program: Command): void {
   const companion = program
     .command('companion')
-    .description('Show companion profile and stats');
+    .description('companion-pane helper subtree')
+    .addHelpText('before', '\ncompanion: companion-pane helper. profile (combined view), memory (observations), context (hook), pane (open), popup-test (validate).\n');
 
-  // Default action — preserves existing bare `sis companion` behavior
-  companion
-    .option('--name <name>', 'Set companion name')
-    .option('--badges', 'Show badge gallery')
-    .action(async (opts: { name?: string; badges?: boolean }) => {
-      const res = await sendRequest({ type: 'companion', name: opts.name });
-      if (!res.ok) {
-        console.error(res.error);
-        process.exit(1);
-      }
-      const companion = res.data as unknown as CompanionState;
-
-      // Header: face + identity
-      const face = renderCompanion(companion, ['face', 'boulder'], { color: true });
-      const displayName = companion.name !== null ? companion.name : '(unnamed)';
-      console.log();
-      console.log(`  ${face}`);
-      console.log();
-      console.log(`  ${displayName}  ·  Level ${companion.level} ${companion.title}`);
-      console.log(`  Mood: ${companion.mood}  ·  XP: ${companion.xp}`);
-      console.log();
-
-      // Stats
-      const s = companion.stats;
-      const endH = Math.floor(s.endurance / 3_600_000);
-      console.log('  Stats');
-      console.log(`    Strength   ${s.strength} sessions`);
-      console.log(`    Endurance  ${endH}h total active`);
-      console.log(`    Wisdom     ${s.wisdom} efficient sessions`);
-      console.log(`    Patience   ${s.patience} persistence score`);
-      console.log();
-
-      if (opts.badges) {
-        // Full badge gallery
-        const gallery = createBadgeGallery(companion.achievements);
-        console.log(`  Badges  ${companion.achievements.length}/${ACHIEVEMENTS.length} earned`);
-        console.log();
-
-        for (let i = 0; i < gallery.total; i++) {
-          const def = gallery.achievements[i]!;
-          const unlock = gallery.unlocked.get(def.id) ?? null;
-          const card = renderBadgeCard(def, unlock);
-          for (const line of card.lines) {
-            console.log(`    ${line}`);
-          }
-          console.log();
-        }
-      } else {
-        // Compact achievement list
-        const unlocked = new Set(companion.achievements.map(a => a.id));
-        const byCategory = new Map<string, typeof ACHIEVEMENTS>();
-        for (const def of ACHIEVEMENTS) {
-          const group = byCategory.get(def.category) ?? [];
-          group.push(def);
-          byCategory.set(def.category, group);
-        }
-
-        console.log(`  Achievements  ${companion.achievements.length}/${ACHIEVEMENTS.length}  (use --badges for gallery)`);
-        for (const [category, defs] of byCategory) {
-          const label = CATEGORY_LABELS[category] ?? category;
-          const unlockedCount = defs.filter(d => unlocked.has(d.id)).length;
-          console.log(`    ${label} (${unlockedCount}/${defs.length})`);
-          for (const def of defs) {
-            const icon = unlocked.has(def.id) ? '✓' : '·';
-            console.log(`      ${icon} ${def.name} — ${def.description}`);
-          }
-        }
-        console.log();
-      }
-
-      // Repos
-      const repos = Object.entries(companion.repos);
-      if (repos.length > 0) {
-        repos.sort(([, a], [, b]) => b.visits - a.visits);
-        console.log('  Repositories');
-        for (const [path, mem] of repos.slice(0, 10)) {
-          const nick = mem.nickname ? ` "${mem.nickname}"` : '';
-          const parts = [`${mem.visits} visits`, `${mem.completions} completions`];
-          if (mem.crashes > 0) parts.push(`${mem.crashes} crashes`);
-          console.log(`    ${path}${nick}`);
-          console.log(`      ${parts.join('  ·  ')}`);
-        }
-        if (repos.length > 10) {
-          console.log(`    … and ${repos.length - 10} more`);
-        }
-        console.log();
-      }
-
-      // Commentary
-      if (companion.lastCommentary) {
-        console.log(`  "${companion.lastCommentary.text}"`);
-        console.log();
-      }
-    });
-
-  // New: memory subcommand
   companion
     .command('memory')
     .description('Show accumulated companion observations grouped by category')
     .option('--repo <path>', 'Filter observations by repo path')
+    .addHelpText('after', `
+companion memory: show accumulated companion observations grouped by category.
+
+Input
+  --repo <path>    optional — filter observations to this repo path; must match the absolute path stored in the memory file.
+
+Output (stdout, plain text — human-readable grouping; not for agentic consumption)
+  Observations grouped by category (session-sentiments, repo-impressions, user-patterns, notable-moments).
+  Each entry: timestamp, source, text, repo basename.
+  Footer: total observation count and last-pruned date.
+
+Effects
+  None. Read-only.
+
+Exit codes: 0 ok | 1 memory file parse error.`)
     .action(async (opts: { repo?: string }) => {
       await runCompanionMemory(opts);
     });
@@ -206,6 +115,21 @@ export function registerCompanion(program: Command): void {
     .description('Emit per-prompt context for the companion plugin hook. Caches the last emission per claude session and writes only the delta on subsequent calls (or nothing, when unchanged).')
     .requiredOption('--cwd <path>', 'Project directory whose sessions to summarise')
     .requiredOption('--session-id <id>', 'Claude session id (from the UserPromptSubmit stdin payload) — keys the per-session cache')
+    .addHelpText('after', `
+companion context: emit per-prompt companion context for the UserPromptSubmit hook.
+
+Input
+  --cwd <path>          required — absolute path to the project directory whose sessions to summarise.
+  --session-id <id>     required — Claude session id from the UserPromptSubmit stdin payload; keys the per-session delta cache.
+
+Output (stdout, plain text — not JSON; consumed as hook context for companion-context)
+  First call per session: full context block.
+  Subsequent calls: delta of changed blocks only; no output when unchanged.
+
+Effects
+  Writes/updates ~/.sisyphus/companion-context-cache/<session-id>.json on each call that produces output.
+
+Exit codes: 0 ok.`)
     .action((opts: { cwd: string; sessionId: string }) => {
       // Cache lives at ~/.sisyphus/companion-context-cache/<sessionId>.json.
       // No cleanup yet — blobs are tiny; `rm -rf` the dir to reset.
@@ -223,9 +147,9 @@ export function registerCompanion(program: Command): void {
       if (hadPrev) {
         const delta = renderContextDelta(prev, next);
         if (delta === null) return;
-        process.stdout.write(delta);
+        process.stdout.write(delta); // hook ABI — plaintext for UserPromptSubmit
       } else {
-        process.stdout.write(renderFullContext(next));
+        process.stdout.write(renderFullContext(next)); // hook ABI — plaintext for UserPromptSubmit
       }
 
       mkdirSync(dirname(cachePath), { recursive: true });
@@ -235,16 +159,42 @@ export function registerCompanion(program: Command): void {
   companion
     .command('pane')
     .description('Open (or focus) a side claude pane next to the dashboard')
-    .option('--cwd <path>', 'Project directory', process.cwd())
-    .action(async (opts: { cwd: string }) => {
+    .option('--cwd <path>', 'Project directory (default: current directory)')
+    .addHelpText('after', `
+companion pane: open (or focus) the companion side pane next to the dashboard.
+
+Input
+  --cwd <path>    optional — project directory; defaults to the current working directory.
+
+Output (stdout, none — this command opens a tmux pane; no structured output is emitted)
+
+Effects
+  Opens or focuses the companion tmux side pane for the given project directory.
+
+Exit codes: 0 ok.`)
+    .action(async (opts: { cwd?: string }) => {
       const { openCompanionPane } = await import('../../tui/lib/tmux.js');
-      openCompanionPane(opts.cwd);
+      openCompanionPane(opts.cwd ?? process.cwd());
     });
 
   companion
     .command('popup-test')
     .description('Show a test commentary popup to validate feedback key handling')
     .option('--text <text>', 'Custom popup text', 'Cycle complete. Everything went exactly as planned. Nothing suspicious here.')
+    .addHelpText('after', `
+companion popup-test: show a test commentary popup to validate feedback key handling.
+
+Input
+  --text <text>    optional — popup body text; defaults to a canned placeholder string.
+
+Output (stdout, plain text — interactive popup result; human-driven test, not for agentic consumption)
+  rating: <thumbs_up|thumbs_down|comment>  [comment: "<text>"]
+  Nothing on success when popup is suppressed.
+
+Effects
+  Spawns a tmux popup; blocks until the user dismisses it.
+
+Exit codes: 0 ok | 1 popup suppressed or not in tmux.`)
     .action((opts: { text: string }) => {
       const feedback = showCommentaryPopup(opts.text);
       if (feedback === null) {

@@ -250,13 +250,25 @@ export function registerCheckKeybinds(program: Command): void {
   program
     .command('check-keybinds')
     .description('Verify tmux keybind state before asking the user to try a sisyphus keybind')
-    .option('--json', 'Print raw JSON state instead of Claude instructions')
-    .action((opts: { json?: boolean }) => {
+    .addHelpText(
+      'after',
+      `
+check-keybinds: verify tmux keybind state before asking the user to try a sisyphus keybind.
+
+Input
+  (no options)
+
+Output (stdout, plain text — agent decision tree embedded in <claude-instructions> tags; not a JSON envelope)
+  Environment data snapshot (tmux version, server state, key binding status for cycle + prefix keys).
+  Decision tree (Paths A–F) indicating which setup action to take based on the data.
+
+Effects
+  Read-only: probes tmux state and reads ~/.tmux.conf. No writes.
+
+Exit codes: 0 ok`,
+    )
+    .action(() => {
       const result = runCheck();
-      if (opts.json) {
-        console.log(JSON.stringify(result, null, 2));
-        return;
-      }
       printInstructions(result);
     });
 }

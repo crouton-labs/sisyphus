@@ -10,15 +10,21 @@ export function registerSessionContext(program: Command): void {
   program
     .command('context <sessionId>')
     .description('Print session context XML (same as dashboard space y C)')
-    .requiredOption('--cwd <path>', 'Working directory of the session')
+    .option('--cwd <path>', 'Working directory of the session', process.cwd())
     .addHelpText(
       'after',
       `
-Output:
-  Default       XML context blob on stdout.
-  --json        { ok, schema_version: 1, data: { sessionId, context } }
+Input
+  <sessionId>        required — session to inspect.
+  --cwd <path>       optional — working directory of the session; defaults to process cwd.
 
-Exit codes: 0 ok | 3 not_found.`,
+Output (stdout, JSON)
+  ok, schema_version: 1, data: { sessionId, context }
+
+Effects
+  None. Read-only.
+
+Exit codes: 0 ok | 3 not_found (unknown session).`,
     )
     .action(async (sessionId: string, opts: { cwd: string }) => {
       const request: Request = { type: 'status', sessionId, cwd: opts.cwd };
@@ -35,7 +41,6 @@ Exit codes: 0 ok | 3 not_found.`,
         });
       }
       const context = buildSessionContext(session, opts.cwd);
-      if (emitJsonOk({ sessionId, context })) return;
-      process.stdout.write(context);
+      emitJsonOk({ sessionId, context }); return;
     });
 }

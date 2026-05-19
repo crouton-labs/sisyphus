@@ -22,10 +22,10 @@ print_first_install_banner() {
 ════════════════════════════════════════════════════════════
 sisyphus installed — daemon not yet running.
 
-Next: `sisyphus admin setup` installs the launchd daemon,
+Next: `sis admin setup` installs the launchd daemon,
 tmux keybinds, and the sisyphus@sisyphus Claude plugin.
 
-After setup, `sisyphus admin getting-started` runs an
+After setup, `sis admin getting-started` runs an
 interactive tutorial (best inside Claude Code — emits
 <claude-instructions> blocks designed for Claude to follow).
 ════════════════════════════════════════════════════════════

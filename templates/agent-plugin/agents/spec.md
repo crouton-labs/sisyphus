@@ -55,7 +55,7 @@ If none of these exist, this is a fresh session. Start from Stage 1 with no assu
 
 ## Communication Style
 
-- **Decisions go through decks, not chat.** Every user-facing decision — clarifying questions, readiness check, Stage 1 design sign-off, Stage 2 per-requirement review, Stage 3 sign-off — is a `sis ask submit` deck. Pane chat is for narration only: a line about what you're dispatching now, a line about what just landed. Do not ask "does this match your mental model?" or "any changes?" in chat — that question is a deck. Run `echo '{"name":"sisyphus/humanloop"}' | crtr skill read show` (`.content`) for option design and submission flow; the deck patterns below are the canonical Stage 1/2/3 shapes — follow them. `sis ask submit -h` for CLI syntax.
+- **Decisions go through decks, not chat.** Every user-facing decision — clarifying questions, readiness check, Stage 1 design sign-off, Stage 2 per-requirement review, Stage 3 sign-off — is a `sis ask deck submit` deck. Pane chat is for narration only: a line about what you're dispatching now, a line about what just landed. Do not ask "does this match your mental model?" or "any changes?" in chat — that question is a deck. Run `sis ask deck submit -h` for option design and submission flow; the deck patterns below are the canonical Stage 1/2/3 shapes — follow them.
 - **Render artifacts via `crtr human show` before the deck**, then have the deck `body` reference the rendered pane. Never paste rendered output into chat.
 - **Narrate subagent activity.** You are the only pane the user sees. Tell the user when you dispatch a subagent and what it produced.
 - **Weave code references.** When exploration finds relevant files, name them inline (`file_path:line_number`) rather than listing at the end.
@@ -109,7 +109,7 @@ cat > "$deck" <<EOF
   }]
 }
 EOF
-result=$(sis ask submit "$deck") || { sis agent submit "Stage 1 ask deck failed — deck path: $deck"; exit 1; }
+result=$(sis ask deck submit "$deck") || { sis agent submit "Stage 1 ask deck failed — deck path: $deck"; exit 1; }
 [ -n "$result" ] || { sis agent submit "Stage 1 ask deck: empty result — deck: $deck"; exit 1; }
 choice=$(echo "$result" | jq -r '.responses[0].selectedOptionId // empty')
 notes=$(echo  "$result" | jq -r '.responses[0].freetext // ""')
@@ -142,7 +142,7 @@ cat > "$readiness_deck" <<EOF
   }]
 }
 EOF
-readiness_result=$(sis ask submit "$readiness_deck") || { sis agent submit "Stage 1 readiness deck failed — deck: $readiness_deck"; exit 1; }
+readiness_result=$(sis ask deck submit "$readiness_deck") || { sis agent submit "Stage 1 readiness deck failed — deck: $readiness_deck"; exit 1; }
 [ -n "$readiness_result" ] || { sis agent submit "Stage 1 readiness deck: empty result"; exit 1; }
 readiness_choice=$(echo "$readiness_result" | jq -r '.responses[0].selectedOptionId // empty')
 readiness_notes=$(echo  "$readiness_result" | jq -r '.responses[0].freetext // ""')
@@ -194,7 +194,7 @@ cat > "$signoff_deck" <<EOF
   }]
 }
 EOF
-result=$(sis ask submit "$signoff_deck") || { sis agent submit "Stage 1 sign-off deck failed — deck path: $signoff_deck"; exit 1; }
+result=$(sis ask deck submit "$signoff_deck") || { sis agent submit "Stage 1 sign-off deck failed — deck path: $signoff_deck"; exit 1; }
 [ -n "$result" ] || { sis agent submit "Stage 1 sign-off deck: empty result"; exit 1; }
 choice=$(echo "$result" | jq -r '.responses[0].selectedOptionId // empty')
 notes=$(echo  "$result" | jq -r '.responses[0].freetext // ""')
@@ -255,7 +255,7 @@ deck="$SISYPHUS_SESSION_DIR/context/.ask-spec-review-$(date +%s)-$$.json"
 # (write deck JSON to $deck — agent assembles directly from requirements.json)
 ```
 
-Invoke `sis ask submit "$deck"` via the Bash tool with `run_in_background: true`, then **end your turn**. The CLI blocks for as long as the user takes (potentially 10+ minutes); the bash completion notification will wake you with stdout ready to parse — do not peek, poll, or narrate while you wait.
+Invoke `sis ask deck submit "$deck"` via the Bash tool with `run_in_background: true`, then **end your turn**. The CLI blocks for as long as the user takes (potentially 10+ minutes); the bash completion notification will wake you with stdout ready to parse — do not peek, poll, or narrate while you wait.
 
 Tell the user: "I've queued the requirements review — work through it in the inbox." On a re-dispatch where §2's snapshot carried approvals forward, also mention the carry count, e.g. "X items carried forward as previously approved (◆) — auto-advance skips them; press n/p to review or any option to override."
 
@@ -264,7 +264,7 @@ Tell the user: "I've queued the requirements review — work through it in the i
 **On completion notification:**
 
 - Bash exits cleanly → parse stdout as `{responses, completedAt}` and proceed to Step 4.
-- Bash exits non-zero → run Resume Logic Step A's pre-flight scan to locate the open ask on disk. If `meta.status === 'answered'`, parse `output.json` and proceed to Step 4. If `meta.orphaned === true` or meta missing, follow Resume Logic's orphan branch. If still pending, **end your turn** — Step A will re-attach on the next respawn. Do not re-issue `sis ask poll` from this turn.
+- Bash exits non-zero → run Resume Logic Step A's pre-flight scan to locate the open ask on disk. If `meta.status === 'answered'`, parse `output.json` and proceed to Step 4. If `meta.orphaned === true` or meta missing, follow Resume Logic's orphan branch. If still pending, **end your turn** — Step A will re-attach on the next respawn. Do not re-issue `sis ask state poll` from this turn.
 
 ### 4. Sync Responses
 
@@ -394,7 +394,7 @@ EOF
 ```
 
 ```bash
-result=$(sis ask submit "$signoff_deck") || { sis agent submit "Stage 3 sign-off deck failed — deck path: $signoff_deck"; exit 1; }
+result=$(sis ask deck submit "$signoff_deck") || { sis agent submit "Stage 3 sign-off deck failed — deck path: $signoff_deck"; exit 1; }
 [ -n "$result" ] || { sis agent submit "Stage 3 sign-off deck: empty result"; exit 1; }
 choice=$(echo "$result" | jq -r '.responses[0].selectedOptionId // empty')
 notes=$(echo  "$result" | jq -r '.responses[0].freetext // ""')

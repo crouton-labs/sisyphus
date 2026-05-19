@@ -13,7 +13,7 @@ Possible approach: a small structured file (~/.sisyphus/companion-memory.json) w
 
 ### Direct conversation with companion
 Users should be able to talk to the companion directly — not just read its status bar quips. Could be:
-- `sisyphus companion chat` — a short exchange
+- `sis companion chat` — a short exchange
 - A TUI overlay mode
 - Integration into the orchestrator prompt so the companion can comment during sessions
 

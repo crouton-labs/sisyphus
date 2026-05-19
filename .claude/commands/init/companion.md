@@ -47,7 +47,7 @@ ASCII kaomoji figure, body evolves with level, face reflects mood intensity:
 
 ## What we want from the data
 
-Session history tracked at `~/.sisyphus/history/{sessionId}/` with `events.jsonl` and `session.json`. CLI: `sisyphus admin history`.
+Session history tracked at `~/.sisyphus/history/{sessionId}/` with `events.jsonl` and `session.json`. CLI: `sis admin history`.
 
 Raw metrics feeding mood (crash count, idle time, session length, agent count, cycle depth, hour of day) are captured per-session. We use this real data to:
 

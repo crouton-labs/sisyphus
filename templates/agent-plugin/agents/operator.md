@@ -53,7 +53,7 @@ Your job is to produce ground truth from real interaction. A report that says "I
 
 ### Dangerous actions require user approval
 
-Some unblocking actions are destructive or have side effects that can't be undone. **Always ask the user via `sis ask` before** (run `echo '{"name":"sisyphus/humanloop"}' | crtr skill read show` (`.content`) for deck design before authoring; `sis ask submit -h` for CLI syntax):
+Some unblocking actions are destructive or have side effects that can't be undone. **Always ask the user via `sis ask` before** (run `sis ask deck submit -h` for CLI syntax and design guidance):
 
 - Wiping or dropping databases / tables
 - Deleting or creating user accounts in production or shared environments
@@ -87,7 +87,7 @@ cat > "$deck" <<'EOF'
   }]
 }
 EOF
-result=$(sis ask submit "$deck")
+result=$(sis ask deck submit "$deck")
 choice=$(echo "$result" | jq -r '.responses[0].selectedOptionId')
 notes=$(echo "$result"  | jq -r '.responses[0].freetext // ""')
 

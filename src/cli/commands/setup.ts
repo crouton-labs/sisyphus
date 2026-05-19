@@ -131,8 +131,30 @@ export function registerSetup(program: Command): void {
   program
     .command('setup')
     .description('One-time setup: install dependencies, daemon, keybindings, and commands')
-    .option('-y, --yes', 'Skip the y/N prompt before modifying ~/.tmux.conf')
-    .option('-f, --force', 'Override safety refusals: overwrite existing key bindings AND auto-append source-file to ~/.tmux.conf')
+    .option('--yes', 'Skip the y/N prompt before modifying ~/.tmux.conf')
+    .option('--force', 'Override safety refusals: overwrite existing key bindings AND auto-append source-file to ~/.tmux.conf')
+    .addHelpText(
+      'after',
+      `
+setup: one-time installation of the sisyphus daemon, tmux keybindings, and dependencies.
+
+Input
+  --yes      optional boolean — skip the y/N confirmation before appending source-file to ~/.tmux.conf.
+  --force    optional boolean — override safety refusals: overwrite conflicting key bindings
+             AND auto-append the tmux source-file line to ~/.tmux.conf.
+
+Output (stdout, plain text)
+  Checklist of installed components with ✓ / ✗ / ⚠ status per item.
+
+Effects
+  Writes tmux keybinding scripts to ~/.sisyphus/.
+  May append a source-file line to ~/.tmux.conf (prompts unless --yes/--force).
+  Installs and starts the sisyphus daemon via launchd (macOS) or systemd/manual (Linux).
+  Installs the sisyphus Claude Code plugin.
+  May install tmux, nvim, and LazyVim if not present (with user confirmation).
+
+Exit codes: 0 ok | 1 partial failure (keybind conflict or daemon start failure)`,
+    )
     .action(async (opts: { yes?: boolean; force?: boolean }) => {
       // 1. Onboarding (tmux, terminal, iterm, nvim, plugin)
       const result = runOnboarding();

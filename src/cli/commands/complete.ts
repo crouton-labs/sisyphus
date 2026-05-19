@@ -14,22 +14,18 @@ export function registerComplete(program: Command): void {
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis session lifecycle complete --report "All TODOs done; tests pass."
-  $ sis session lifecycle complete --session sess-7f2a --report @report.md --json
+Input
+  --report <report>  required. Final completion report text.
+  --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
 
-Output:
-  Default       "Session completed." plus a continue-hint on stdout.
-  --json        { ok, schema_version: 1, data: { sessionId } }
+Output (stdout, JSON, schema_version: 1)
+  ok, schema_version: 1, data: { sessionId }
 
-When NOT to use:
-  This is for the orchestrator to signal end-of-roadmap. Sub-agents use
-  \`sis agent submit\` to deliver their final report instead.
+Effects
+  Marks the session as completed in daemon state. Orchestrator-only; sub-agents
+  use \`sis agent submit\` to deliver their final report instead.
 
-Exit codes: 0 ok | 2 usage (missing session id) | 3 not_found.
-
-Next on success:
-  $ sis session lifecycle continue      # clear roadmap and keep working in the same session`,
+Exit codes: 0 ok | 2 usage (missing session id) | 3 not_found.`,
     )
     .action(async (opts: { report: string; session?: string }) => {
       assertTmux();
@@ -45,10 +41,6 @@ Next on success:
       const request: Request = { type: 'complete', sessionId, report: opts.report };
       const response = await sendRequest(request);
       if (!response.ok) exitError(response.error);
-      if (emitJsonOk({ sessionId })) return;
-      console.log('Session completed.');
-      console.log('');
-      console.log('To keep working in this session:');
-      console.log('  sis session lifecycle continue   # reactivate session and clear roadmap for new work');
+      emitJsonOk({ sessionId }); return;
     });
 }

@@ -44,7 +44,7 @@ export async function cloudHandoff(sessionId: string, opts: HandoffOptions): Pro
 
   if (!opts.wait) {
     if (!opts.force) {
-      console.log(`Tip: run \`sis cloud handoff push ${sessionId} --cancel\` to cancel before quiesce.`);
+      console.log(`Tip: run \`sis cloud handoff cancel ${sessionId}\` to cancel before quiesce.`);
     }
     return;
   }

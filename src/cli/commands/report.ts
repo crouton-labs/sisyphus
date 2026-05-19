@@ -16,27 +16,21 @@ export function registerReport(program: Command): void {
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis agent report --message "Located auth in 3 files; continuing investigation."
-  $ cat checkpoint.md | sis agent report --stdin
+agent report: send an intermediate progress checkpoint without exiting.
 
-What to report (flag it — don't work around it; the orchestrator routes it
-to the right agent, you stay focused on your task):
-  - Code smells — unexpected complexity, unclear architecture, wrong-looking code
-  - Out-of-scope issues — failing tests, missing error handling, broken assumptions
-  - Blockers — anything preventing you from completing your task
-  Include exact file:line so the next agent can navigate.
+Input
+  --message <text>    optional. Report content (conflicts with --stdin).
+  --stdin             optional. Force-read content from stdin.
+  --session <id>      optional. Defaults to $SISYPHUS_SESSION_ID.
+  stdin               optional. Read when neither --message nor --stdin is given.
 
-When NOT to use:
-  Use \`sis agent submit\` to deliver the final report and exit. \`report\`
-  is non-terminal — it records an intermediate checkpoint and the agent
-  keeps running.
+Output (stdout, JSON, schema_version: 1)
+  ok, schema_version: 1, data: { sessionId, agentId }
 
-Output:
-  Default       "Progress report recorded" on stdout.
-  --json        { ok, schema_version: 1, data: { sessionId, agentId } }
+Effects
+  Records an intermediate checkpoint in the orchestrator; the agent keeps running.
 
-Exit codes: 0 ok | 2 usage | 3 not_found.`,
+Exit codes: 0 ok | 2 usage | 3 not_found | 60 transient.`,
     )
     .action(async (opts: { message?: string; stdin?: boolean; session?: string }) => {
       assertTmux();
@@ -74,7 +68,6 @@ Exit codes: 0 ok | 2 usage | 3 not_found.`,
       const request: Request = { type: 'report', sessionId, agentId, content };
       const response = await sendRequest(request);
       if (!response.ok) exitError(response.error);
-      if (emitJsonOk({ sessionId, agentId })) return;
-      console.log('Progress report recorded');
+      emitJsonOk({ sessionId, agentId }); return;
     });
 }

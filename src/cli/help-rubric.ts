@@ -107,6 +107,8 @@ export const RUBRICS: Record<string, { short: string; useWhen: string }> = {
   'admin report upload': { short: 'Upload session data', useWhen: 'sharing a session for support' },
   'admin report configure-upload': { short: 'Configure the upload target', useWhen: 'setting where uploads go' },
 
+  'admin clean-zombies': { short: 'Sweep stale zombie processes', useWhen: 'cleaning up after a crashed daemon or hung agent' },
+
   'cloud box': { short: 'Provision / operate the box for this repo', useWhen: 'working with the box-side environment' },
   'cloud handoff': { short: 'Move a session between local and box', useWhen: 'relocating in-flight work' },
 
@@ -120,6 +122,11 @@ export const RUBRICS: Record<string, { short: string; useWhen: string }> = {
 
   'cloud handoff push': { short: 'Hand a live session off to the box', useWhen: 'moving local work to the cloud' },
   'cloud handoff pull': { short: 'Reclaim a handed-off session locally', useWhen: 'bringing cloud work back home' },
+
+  'agent types': { short: 'Agent-type catalog', useWhen: 'discovering installable agent types' },
+  'agent types list': { short: 'List agent types', useWhen: 'enumerating spawnable agent types' },
+  'deploy list': { short: 'List deploy providers', useWhen: 'discovering supported providers' },
+  'companion profile': { short: 'Print companion profile', useWhen: 'reading the combined memory + context + badges blob' },
 
   'companion memory': { short: 'Show accumulated companion observations', useWhen: 'reviewing what the companion noticed' },
   'companion context': { short: 'Emit per-prompt companion context', useWhen: 'the companion plugin hook needs context' },

@@ -148,7 +148,7 @@ Before implementation begins, determine how to concretely verify the change work
 
 If you cannot determine a concrete verification method, **ask the user via `sis ask`**. Propose 2-4 candidate verification approaches as options (not an open-ended question). Do not proceed to implementation without a verification plan.
 
-Before authoring the deck, **run `echo '{"name":"sisyphus/humanloop"}' | crtr skill read show`** for option-design guidance and submission flow (output JSON has `.content`). Ground options in this feature's actual surface (manual UI? integration test? log inspection? metric delta?) — not generic placeholders.
+Before authoring the deck, **run `sis ask deck submit -h`** for option-design guidance and submission flow. Ground options in this feature's actual surface (manual UI? integration test? log inspection? metric delta?) — not generic placeholders.
 
 Write the recipe to `context/e2e-recipe.md` with setup steps, exact commands or interactions to verify, and what success looks like. Make it executable, not aspirational. Implementation agents and validation agents both reference this file.
 

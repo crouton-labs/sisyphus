@@ -7,7 +7,7 @@ source "$_SUITE_DIR/../lib/assert.sh"
 # ---------------------------------------------------------------------------
 
 test_install_ok() {
-  assert_cmd "install-ok" which sisyphus
+  assert_cmd "install-ok" which sis
   assert_cmd "install-ok-daemon" which sisyphusd
 }
 
@@ -20,7 +20,7 @@ test_node_pty_native() {
 }
 
 test_cli_version() {
-  assert_cmd "cli-version" sisyphus --version
+  assert_cmd "cli-version" sis --version
 }
 
 test_daemon_version() {
@@ -60,7 +60,7 @@ test_daemon_lifecycle() {
 
 test_doctor_base() {
   DOCTOR_OUTPUT=$(run_doctor)
-  assert_cmd "doctor-runs" sisyphus admin doctor
+  assert_cmd "doctor-runs" sis admin doctor
   assert_contains "doctor-node-ok" "$DOCTOR_OUTPUT" '✓.*Node'
 }
 
@@ -70,7 +70,7 @@ test_postinstall_no_swift() {
 
 test_help_lists_commands() {
   local output
-  output=$(sisyphus --help 2>&1)
+  output=$(sis --help 2>&1)
   assert_contains "help-lists-start"  "$output" "start"
   assert_contains "help-lists-list"   "$output" "list"
   assert_contains "help-lists-status" "$output" "status"
@@ -78,7 +78,7 @@ test_help_lists_commands() {
 }
 
 test_unknown_command_fails() {
-  if sisyphus notacommand >/dev/null 2>&1; then
+  if sis notacommand >/dev/null 2>&1; then
     assert_fail "unknown-command-fails" "expected non-zero exit code"
   else
     assert_pass "unknown-command-fails"
@@ -86,7 +86,7 @@ test_unknown_command_fails() {
 }
 
 test_doctor_exit_code() {
-  sisyphus admin doctor >/dev/null 2>&1
+  sis admin doctor >/dev/null 2>&1
   local exit_code=$?
   if [ "$exit_code" -eq 0 ]; then
     assert_pass "doctor-exit-code"
@@ -241,7 +241,7 @@ test_sigkill_recovery() {
 test_home_unset() {
   # Tests that CLI doesn't hang or segfault with HOME unset.
   # Non-zero exit is acceptable — we just verify it terminates cleanly.
-  if (unset HOME; sisyphus --version >/dev/null 2>&1); then
+  if (unset HOME; sis --version >/dev/null 2>&1); then
     assert_pass "home-unset-version"
   else
     assert_pass "home-unset-version"

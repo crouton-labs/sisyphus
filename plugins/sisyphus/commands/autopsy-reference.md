@@ -51,7 +51,7 @@ Phase transitions are shaped by exit criteria in `roadmap.md`. "Stuck in a phase
 | Reports | agent → orchestrator | `sis agent submit` (terminal) / `sis agent report` (non-terminal) |
 | State | daemon → orchestrator | `state.json` — agent statuses, session metadata |
 | Events | daemon → history | `events.jsonl` — timestamped lifecycle events |
-| Ask | agent → user | `sis ask submit <deck.json>` — submits a structured `Deck` of `Interaction[]`; user answers via the dashboard's full-screen resolution mode. Always blocking (caller waits for `output.json`); to avoid tying up a shell, callers invoke via the Bash tool with `run_in_background: true` and observe completion via `BashOutput`. `sis ask poll <askId>` blocks on a known askId; `sis ask peek <askId>` is non-blocking |
+| Ask | agent → user | `sis ask deck submit <deck.json>` — submits a structured `Deck` of `Interaction[]`; user answers via the dashboard's full-screen resolution mode. Always blocking (caller waits for `output.json`); to avoid tying up a shell, callers invoke via the Bash tool with `run_in_background: true` and observe completion via `BashOutput`. `sis ask state poll <askId>` blocks on a known askId; `sis ask state peek <askId>` is non-blocking |
 | Yield prompt | orchestrator → next orchestrator | `sis orch yield --prompt "..."` |
 
 ### `sis ask` deck schema

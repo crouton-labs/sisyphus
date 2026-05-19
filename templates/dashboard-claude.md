@@ -20,7 +20,7 @@ sis session inspect list                                    # List sessions for 
 sis session inspect status <session-id>                     # Show detailed session status
 sis orch message "<content>" --session <id>                 # Queue message for orchestrator (read on next cycle)
 sis orch tell "<text>" --session <id>                       # Type prompt directly into the orchestrator pane (immediate)
-                                                            #   --no-submit pastes without pressing Enter; --stdin reads body from stdin
+                                                            #   --paste-only pastes without pressing Enter; --stdin reads body from stdin
 sis agent io tell <agent-id> "<text>" --session <id>        # Type prompt directly into an agent pane (immediate); agent-id = agent-NNN
 sis orch read --session <id>                                # Print Claude conversation transcript for the orchestrator
 sis agent io read <agent-id> --session <id>                 # Print Claude conversation transcript for an agent

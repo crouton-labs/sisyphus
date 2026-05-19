@@ -310,7 +310,7 @@ cat > "$turn_deck" <<EOF
   }]
 }
 EOF
-result=$(sis ask submit "$turn_deck") || { sis agent submit "Problem turn deck failed — deck: $turn_deck"; exit 1; }
+result=$(sis ask deck submit "$turn_deck") || { sis agent submit "Problem turn deck failed — deck: $turn_deck"; exit 1; }
 [ -n "$result" ] || { sis agent submit "Problem turn deck: empty result — deck: $turn_deck"; exit 1; }
 choice=$(echo "$result" | jq -r '.responses[0].selectedOptionId // empty')
 notes=$(echo  "$result" | jq -r '.responses[0].freetext // ""')
@@ -345,7 +345,7 @@ cat > "$signoff_deck" <<EOF
   }]
 }
 EOF
-result=$(sis ask submit "$signoff_deck") || { sis agent submit "Problem sign-off deck failed — deck: $signoff_deck"; exit 1; }
+result=$(sis ask deck submit "$signoff_deck") || { sis agent submit "Problem sign-off deck failed — deck: $signoff_deck"; exit 1; }
 [ -n "$result" ] || { sis agent submit "Problem sign-off deck: empty result — deck: $signoff_deck"; exit 1; }
 choice=$(echo "$result" | jq -r '.responses[0].selectedOptionId // empty')
 notes=$(echo  "$result" | jq -r '.responses[0].freetext // ""')

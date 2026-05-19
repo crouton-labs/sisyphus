@@ -28,7 +28,7 @@ test_doctor_full() {
 test_full_setup() {
   tmux new-session -d -s setup-test 2>/dev/null || true
   start_daemon
-  sisyphus admin setup >/dev/null 2>&1 || true
+  sis admin setup >/dev/null 2>&1 || true
   assert_file_exists "setup-begin-cmd" "$HOME/.claude/commands/sisyphus/begin.md"
   assert_file_exists "setup-autopsy-cmd" "$HOME/.claude/commands/sisyphus/autopsy.md"
   stop_daemon
@@ -53,7 +53,7 @@ test_status_bar() {
 
 test_list_empty() {
   start_daemon
-  assert_cmd "list-empty" sisyphus list
+  assert_cmd "list-empty" sis list
   stop_daemon
 }
 
@@ -280,7 +280,7 @@ test_setup_idempotency() {
   fi
 
   # First run
-  sisyphus admin setup >/dev/null 2>&1 || true
+  sis admin setup >/dev/null 2>&1 || true
   assert_file_exists "setup-idempotent-first-run" "$BEGIN_FILE"
   assert_file_exists "setup-idempotent-first-run-autopsy" "$AUTOPSY_FILE"
 
@@ -289,7 +289,7 @@ test_setup_idempotency() {
   echo "# CUSTOM AUTOPSY MARKER" >> "$AUTOPSY_FILE"
 
   # Second run
-  sisyphus admin setup >/dev/null 2>&1 || true
+  sis admin setup >/dev/null 2>&1 || true
 
   # Markers must survive (files not overwritten)
   local content
@@ -319,9 +319,9 @@ test_tui_rendering() {
   sleep 2  # let session initialize
 
   # Launch TUI in a real tmux pane (needs a PTY — not piped)
-  # Note: the CLI command is "sisyphus dashboard" (not "tui"); -c sets cwd so the
+  # Note: the CLI command is "sis dashboard" (not "tui"); -c sets cwd so the
   # TUI's session filter matches the session we created above.
-  tmux new-window -t tui-render-test -n tui -c "$TEST_CWD" "sisyphus dashboard"
+  tmux new-window -t tui-render-test -n tui -c "$TEST_CWD" "sis dashboard"
   sleep 3  # let TUI render
 
   # Capture the rendered output (plain text, ANSI stripped by tmux)
@@ -373,7 +373,7 @@ test_tui_input_handling() {
   fi
 
   # Launch TUI in a real tmux pane
-  tmux new-window -t tui-input-test -n tui -c "$TEST_CWD" "sisyphus dashboard"
+  tmux new-window -t tui-input-test -n tui -c "$TEST_CWD" "sis dashboard"
   sleep 3  # let TUI render
 
   # Verify TUI is actually running before sending keystrokes
@@ -415,7 +415,7 @@ test_tui_graceful_no_tty() {
   local exit_code
 
   # Test 1: piped stdin — must exit on its own within 5s (not hang)
-  timeout 5 bash -c 'echo "" | sisyphus tui' >/dev/null 2>&1
+  timeout 5 bash -c 'echo "" | sis tui' >/dev/null 2>&1
   exit_code=$?
   if [ "$exit_code" -ne 124 ]; then
     # 124 = timeout killed it (hung); anything else = exited on its own
@@ -425,7 +425,7 @@ test_tui_graceful_no_tty() {
   fi
 
   # Test 2: /dev/null stdin — must exit on its own within 5s
-  timeout 5 bash -c 'sisyphus tui < /dev/null' >/dev/null 2>&1
+  timeout 5 bash -c 'sis tui < /dev/null' >/dev/null 2>&1
   exit_code=$?
   if [ "$exit_code" -ne 124 ]; then
     assert_pass "tui-no-tty-devnull"

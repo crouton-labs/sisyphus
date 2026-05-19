@@ -331,6 +331,23 @@ export function registerDoctor(program: Command): void {
   program
     .command('doctor')
     .description('Check sisyphus installation health')
+    .addHelpText(
+      'after',
+      `
+doctor: check sisyphus installation health.
+
+Input
+  (no options)
+
+Output (stdout, plain text — human-readable diagnostic report; not for agentic consumption)
+  One line per check: ✓/!/✗ <name>: <detail>
+  Followed by a Fixes: section listing remediation commands for any failed checks.
+
+Effects
+  Read-only: probes binaries, files, sockets, and system state. No writes.
+
+Exit codes: 0 ok`,
+    )
     .action(() => {
       const itermCheck = checkItermRightOptionKey();
       const checks: Check[] = [

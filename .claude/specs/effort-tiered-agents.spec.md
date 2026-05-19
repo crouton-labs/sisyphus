@@ -69,8 +69,8 @@ The same transform applies to orchestrator system prompts (`prompts/orchestrator
 ## Effort Tier Source
 
 - **Default = inferred** at strategy-write time by the orchestrator. Heuristic in `templates/orchestrator-base.md` (the `<effort-tiers>` section): tier should reflect novelty of behavior, not just file count. Wrapper-shaped work (no new invariants, just plumbing) → LOW or MED. New subsystems → HIGH. New protocols / cross-domain orchestration / novel concurrency → XHIGH.
-- **User override** via `sisyphus session effort <low|medium|high|xhigh>` (or `sisyphus start --effort <tier>` at session creation). Override is sticky — persists in `state.json` and takes precedence over inference each cycle.
-- **Persistence**: store as `state.session.effort` and surface in `digest.json`. Show in `sisyphus status` output.
+- **User override** via `sis session effort <low|medium|high|xhigh>` (or `sis start --effort <tier>` at session creation). Override is sticky — persists in `state.json` and takes precedence over inference each cycle.
+- **Persistence**: store as `state.session.effort` and surface in `digest.json`. Show in `sis status` output.
 - **Display in dashboard** is out of scope for this spec; can come later.
 
 If effort is unset (older sessions): treat as HIGH (preserve existing behavior).
@@ -284,7 +284,7 @@ LOW should never reach these agents (orchestrator-gated). At MEDIUM, replace `##
 Run synchronously:
 
 \`\`\`bash
-sisyphus admin requirements --export --session-id $SISYPHUS_SESSION_ID
+sis admin requirements --export --session-id $SISYPHUS_SESSION_ID
 \`\`\`
 
 This generates `context/requirements.md` from `requirements.json`.
@@ -296,7 +296,7 @@ the user.
 
 ### 3. Submit
 
-Submit the final report via `sisyphus agent submit` with paths to the artifacts produced
+Submit the final report via `sis agent submit` with paths to the artifacts produced
 (`design.json`, `design.md`, `requirements.json`, `requirements.md`).
 ```
 
@@ -312,7 +312,7 @@ The base prompt carries an `<effort-tiers>` section with three concerns:
 
 1. **Per-tier spawn gates** for `test-spec`, `review-plan`, `spec`, `problem` — encoded as `<!--EFFORT:LOW-->...<!--/EFFORT-->`, `<!--EFFORT:MEDIUM-->...<!--/EFFORT-->`, and `<!--EFFORT:HIGH,XHIGH-->...<!--/EFFORT-->` blocks. LOW instructs the orchestrator to skip these spawns; MEDIUM gates them on behavioral-invariant criteria; HIGH/XHIGH carries the full-pipeline expectations.
 2. **Per-tier default pipeline shape** — LOW = `plan → implement → validate`; MEDIUM = the LOW shape plus optional spec/test-spec/review-plan when invariants warrant; HIGH/XHIGH = the current full pipeline.
-3. **Effort-inference heuristic** — wrapper-shaped → LOW; refactor/migration → LOW or MEDIUM; new feature in existing subsystem → MEDIUM; new subsystem / cross-domain → HIGH; novel concurrency / new security boundary → XHIGH. The user can override via `sisyphus session effort`.
+3. **Effort-inference heuristic** — wrapper-shaped → LOW; refactor/migration → LOW or MEDIUM; new feature in existing subsystem → MEDIUM; new subsystem / cross-domain → HIGH; novel concurrency / new security boundary → XHIGH. The user can override via `sis session effort`.
 
 ## Out of Scope
 
@@ -325,7 +325,7 @@ The base prompt carries an `<effort-tiers>` section with three concerns:
 ## Open Questions
 
 1. Where does `effort` live in `state.json`? Suggested: `state.session.effort` as `'low' | 'medium' | 'high' | 'xhigh'`. Confirm with the daemon code before implementing.
-2. Should `sisyphus session effort` only affect future cycles, or trigger an immediate re-render of running agent prompts? Suggested: future cycles only. Running agents keep their original prompt.
+2. Should `sis session effort` only affect future cycles, or trigger an immediate re-render of running agent prompts? Suggested: future cycles only. Running agents keep their original prompt.
 3. MEDIUM is currently underspecified per agent (most agents have only LOW + HIGH/XHIGH defined). Decide per agent during implementation whether MEDIUM = LOW, MEDIUM = HIGH, or MEDIUM is its own variant. The conservative default is MEDIUM = HIGH (current behavior) for now.
 
 ## Verification

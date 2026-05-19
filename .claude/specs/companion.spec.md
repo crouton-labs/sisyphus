@@ -417,7 +417,7 @@ renderCompanion(state, ['face', 'boulder', 'commentary'], { maxWidth: 34, color:
 renderCompanion(state, ['face', 'boulder', 'title', 'mood', 'commentary'], { color: true })
 → "\x1b[32m(^.^)/ O\x1b[0m  Crag Warden [zen]  The rocks know my name now."
 
-// sisyphus companion (full profile — rendered separately, not this function)
+// sis companion (full profile — rendered separately, not this function)
 ```
 
 The function composes: stat cosmetics + achievement badges + mood face + boulder size → single line. `maxWidth` truncates commentary (never the face/boulder). `color` toggles ANSI escape codes (off for plain text contexts).
@@ -435,7 +435,7 @@ This function lives in a shared module so CLI, daemon (status-bar.ts), and TUI c
 | **tmux status bar** | Colored face + boulder | Appended to `@sisyphus_status` by `status-bar.ts`. Uses `renderCompanion(['face', 'boulder'], { maxWidth: 20, color: true })`. |
 | **tmux status bar (flash)** | Face + commentary | On commentary events (session start/complete, achievement, level-up), temporarily replaces the compact face with face + commentary text. Reverts to compact after 5 seconds on next poll cycle. |
 | **`sisyphus status`** | Face + title + mood + commentary | One-liner section in status output. Uses `renderCompanion(['face', 'boulder', 'title', 'mood', 'commentary'])`. |
-| **`sisyphus companion`** | Full profile dump | Dedicated command. Not using `renderCompanion` — custom multi-line formatted output with all stats, achievement list, repo history, mood, level, XP progress bar, etc. |
+| **`sis companion`** | Full profile dump | Dedicated command. Not using `renderCompanion` — custom multi-line formatted output with all stats, achievement list, repo history, mood, level, XP progress bar, etc. |
 
 ### TUI Tree Integration
 
@@ -493,12 +493,12 @@ Opens as an overlay (same pattern as help `?` overlay) showing:
 
 No extra tmux execs — piggybacks on the existing `writeStatusBar()` call in the poll cycle.
 
-### New CLI Command: `sisyphus companion`
+### New CLI Command: `sis companion`
 
 Displays full companion profile. Read-only, no arguments except `--name`.
 
 ```
-$ sisyphus companion
+$ sis companion
 
   * \(^.^)/ O *     Crag Warden (Lv 8)
                      Mood: zen | 2:47pm
@@ -542,7 +542,7 @@ All commentary and nickname generation follows the existing `summarize.ts` patte
 
 ## Naming
 
-The companion doesn't have a name by default. If the user runs `sisyphus companion --name "Rocky"`, it sticks. Otherwise status just shows the ASCII art and title. Haiku never references a name unless one is set.
+The companion doesn't have a name by default. If the user runs `sis companion --name "Rocky"`, it sticks. Otherwise status just shows the ASCII art and title. Haiku never references a name unless one is set.
 
 ## Non-Goals
 

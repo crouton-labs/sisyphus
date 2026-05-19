@@ -1,6 +1,6 @@
 #!/bin/bash
 # PreToolUse hook for the plan agent: enforce master-plan length limit
-# at `sisyphus agent submit` time. Masters are identified by a `## Sub-Plans`
+# at `sis agent submit` time. Masters are identified by a `## Sub-Plans`
 # heading. If no master exists (no plan file declares sub-plans), every
 # plan file is treated as a standalone master and must obey the limit.
 
@@ -23,8 +23,8 @@ except Exception:
     pass
 " 2>/dev/null)
 
-# Only gate on `sisyphus agent submit`. Anything else passes through.
-if [[ ! "$COMMAND" =~ sisyphus[[:space:]]+agent[[:space:]]+submit ]]; then
+# Only gate on `sis agent submit`. Anything else passes through.
+if [[ ! "$COMMAND" =~ sis[[:space:]]+agent[[:space:]]+submit ]]; then
   exit 0
 fi
 

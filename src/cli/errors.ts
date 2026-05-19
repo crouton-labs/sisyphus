@@ -1,5 +1,4 @@
 import type { ErrorKind, ProtocolError } from '../shared/protocol.js';
-import { getGlobalFlags } from './global-flags.js';
 
 /**
  * Wire `error` field may be a plain string from unmigrated daemon sites; this
@@ -38,26 +37,9 @@ export function exitForError(kind: ErrorKind): number {
  */
 export function exitError(err: string | ProtocolError | undefined): never {
   const e = normalizeError(err);
-  const json = getGlobalFlags().json;
-  if (json) {
-    process.stdout.write(
-      JSON.stringify({ ok: false, schema_version: 1, error: e }) + '\n',
-    );
-  } else {
-    process.stderr.write(`Error: ${e.message}\n`);
-    if (e.received !== undefined) {
-      process.stderr.write(`  Received: ${formatVal(e.received)}\n`);
-    }
-    if (e.expected !== undefined) {
-      process.stderr.write(`  Expected: ${formatVal(e.expected)}\n`);
-    }
-    if (e.candidates && e.candidates.length > 0) {
-      process.stderr.write(`  Candidates: ${e.candidates.join(', ')}\n`);
-    }
-    if (e.next) {
-      process.stderr.write(`  Next: ${e.next}\n`);
-    }
-  }
+  process.stdout.write(
+    JSON.stringify({ ok: false, schema_version: 1, error: e }) + '\n',
+  );
   process.exit(exitForError(e.kind));
 }
 

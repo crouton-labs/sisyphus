@@ -12,9 +12,14 @@ export function registerReconnect(program: Command): void {
     .addHelpText(
       'after',
       `
-Output:
-  Default       "Reconnected to <tmux-session> (window <id>)" on stdout.
-  --json        { ok, schema_version: 1, data: { sessionId, tmuxSessionName, tmuxWindowId } }
+Input
+  <session-id>       required. ID of the orphaned session to reattach.
+
+Output (stdout, JSON, schema_version: 1)
+  ok, schema_version: 1, data: { sessionId, tmuxSessionName, tmuxWindowId }
+
+Effects
+  Registers the existing tmux session with the daemon. No orchestrator is spawned and no session state changes.
 
 Exit codes: 0 ok | 3 not_found.`,
     )
@@ -25,7 +30,6 @@ Exit codes: 0 ok | 3 not_found.`,
       if (!response.ok) exitError(response.error);
       const tmuxSessionName = response.data?.tmuxSessionName as string;
       const tmuxWindowId = response.data?.tmuxWindowId as string;
-      if (emitJsonOk({ sessionId, tmuxSessionName, tmuxWindowId })) return;
-      console.log(`Reconnected to ${tmuxSessionName} (window ${tmuxWindowId})`);
+      emitJsonOk({ sessionId, tmuxSessionName, tmuxWindowId }); return;
     });
 }

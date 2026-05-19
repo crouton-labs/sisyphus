@@ -27,39 +27,29 @@ function validateAskId(askId: string): void {
 }
 
 const ROOT_HELP = `
-\`sis ask\` is the single surface for user engagement. Every question, gate, notification, or document hand-off goes through here. Engagement is expensive — resolve what you can resolve yourself (read code, spawn exploration agents, run tools) before reaching for these leaves. A typical session has a handful of asks, not a stream.
+ask: user-engagement leaves. deck (option picks) | approve (yes/no gate) | notify (FYI) | review (markdown annotation) | state (recovery) | show (display).
 
-Pick the leaf by the shape of the engagement:
+  deck submit FILE     Pose 1+ questions with named alternatives.          | use when picking between concrete named paths or bundling decisions
+  approve TITLE        Yes/no gate on a single concrete action. Blocks.    | use when you need explicit consent before a destructive or irreversible step
+  notify TITLE         Fire-and-forget acknowledgement. Non-blocking.      | use when the user should know something but no answer is needed
+  review {sub}         Line-by-line markdown annotation workflow.          | use when surfacing a document for per-line annotation rather than option picking
+  state {sub}          Inspect existing ask state.                         | use on recovery only — not the normal path
+  show PATH            Display a file in a tmux pane. No response.         | use to surface context the user should glance at while you work
 
-  deck submit FILE   Pose 1+ questions with named alternatives (and optional freetext).
-                     The general-purpose surface — when in doubt, use this.
-  approve TITLE      Yes/no gate on a single concrete action. Blocks.
-  notify TITLE       FYI; no answer expected. Non-blocking.
-  review FILE        Line-by-line markdown annotation in the user's editor. Blocks.
-  state {poll,peek,list}
-                     Inspect existing ask state (recovery only — not the normal path).
-  show PATH          Display a file in a tmux pane. No response captured.
-
-I/O contract: every leaf emits one line of JSON on stdout (schema in each leaf's -h). Stderr is diagnostics only; never the result. Set --json to suppress prose diagnostics when piping; it is forced when stdout is not a TTY.
+I/O contract: every leaf emits one line of bare JSON on stdout (schema in each leaf's -h). Stderr is diagnostics only; never the result.
 `;
 
 const DECK_HELP = `
 Structured option decks — the primary surface for user decisions. A deck is one or more interactions, each posing a titled question with 2–4 mutually-exclusive named options and an optional freetext channel.
 
-Use a deck when:
-- Picking between concrete alternatives with meaningful tradeoffs.
-- Bundling 2+ related questions into one user context-switch.
-- Surfacing work for sign-off (a design, plan, completion summary).
-- The user may sit on it across cycles — decks survive yields; pane chat does not.
-
 For a freetext-primary question, write a single-interaction deck with one option ("acknowledge") and \`allowFreetext: true\` with a clear \`freetextLabel\`. Freetext-as-primary is rare; usually you want named options grounded in evidence.
 
-Leaves
-  submit <file>   Submit a deck JSON file. Blocks until the user resolves it.
+Branches
+  submit <file>   Submit a deck JSON file; blocks until the user resolves it.   | use when you have a valid deck JSON ready to post
 `;
 
 const DECK_SUBMIT_HELP = `
-Submits a deck of structured questions to the user's dashboard inbox. Always blocks until the user resolves every interaction (often minutes; can be 10+).
+deck submit: submit a deck of structured questions to the user's dashboard inbox. Always blocks until the user resolves every interaction (often minutes; can be 10+).
 
 DECK DESIGN
 
@@ -127,52 +117,127 @@ DECK JSON SCHEMA
     description?    string                               // spell out the tradeoff
     shortcut?       string
 
-OUTPUT
+Input
+  <file>              required — path to a valid deck JSON file
+  --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
 
-  stdout (one line of JSON):
-    { "responses": [{ "id", "selectedOptionId"?, "freetext"? }, ...], "completedAt" }
-
+Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+  { "responses": [{ "id", "selectedOptionId"?, "freetext"? }, ...], "completedAt" }
   Branch on each response by its interaction \`id\`.
+  on error: stderr diagnostic + non-zero exit
 
-ERRORS
+Effects
+  Creates an ask in the session store. Blocks until the user resolves it, then marks it answered.
 
-  Validation errors at submit are precise — they name what was received and what was expected. Read them, don't guess.
+Exit codes: 0 ok | 2 usage (invalid file, validation error, missing session)
 `;
 
 const APPROVE_HELP = `
-Single yes/no gate. Blocks until the user picks. Returns { askId, approved, completedAt, responses }.
+approve: yes/no gate on a single concrete action.
 
-Use when the next step is reversible and proceeding needs explicit user consent — a destructive command, a network call with side effects, a state-changing migration. The \`--body\` should describe the concrete action in enough detail that the user can judge it without a follow-up question.
-
-When the answer is "yes, but also tell me X" or "no, and here's why" matters, use \`sis ask deck submit\` instead — approve doesn't capture nuance.
+Use when the next step is irreversible and proceeding needs explicit user consent. The \`--body\` should describe the concrete action so the user can judge it without a follow-up question. When nuance matters (yes-but or no-because), use \`sis ask deck submit\` instead.
 
 Same blocking semantics as \`sis ask deck submit\`: orchestrator runs foreground, agent uses run_in_background.
+
+Input
+  <title>             required — action being approved
+  --subtitle <s>      optional — one-line context shown below the title
+  --body <b>          optional — markdown body describing what the user is approving
+  --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
+
+Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+  { "askId", "approved": boolean, "completedAt", "responses" }
+  on error: stderr diagnostic + non-zero exit
+
+Effects
+  Blocks until the user picks. Creates an ask in the session store, marks it answered on completion.
+
+Exit codes: 0 ok | 2 usage (missing session)
 `;
 
 const NOTIFY_HELP = `
-Fire-and-forget acknowledgement. Non-blocking — returns immediately with { askId } before the user sees it.
+notify: fire-and-forget acknowledgement to the dashboard.
 
-Use when the user should know about something (a milestone hit, a finding surfaced, a heads-up before a long-running step) but no answer is needed.
+Non-blocking — returns immediately with { askId } before the user sees it.
 
-When even a minimal answer matters, use \`sis ask approve\`. When picking between paths matters, use \`sis ask deck submit\`. Notifications do not have a return path.
+Use when the user should know about something (a milestone hit, a finding surfaced, a heads-up before a long-running step) but no answer is needed. When even a minimal answer matters, use \`sis ask approve\`. When picking between paths matters, use \`sis ask deck submit\`. Notifications do not have a return path.
+
+Input
+  <title>             required — notification title
+  --body <b>          optional — markdown body
+  --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
+
+Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+  { "askId" }
+  on error: stderr diagnostic + non-zero exit
+
+Effects
+  Creates a non-blocking ask in the session store. Does not wait for user acknowledgement.
+
+Exit codes: 0 ok | 2 usage (missing session)
 `;
 
-const REVIEW_HELP = `
-A review is a markdown-file review with line-anchored comments.
+const REVIEW_BRANCH_HELP = `
+Line-by-line markdown annotation workflow. The agent submits the file; the user opens it in their editor from the dashboard inbox, annotates per-line with <Space>c, and submits with <Space>s or the dashboard "Submit" action. Multiple open/close cycles are supported — the draft persists until explicitly submitted.
 
-The agent submits the file; the human opens it in a clean nvim/vim session from
-the dashboard inbox (90% tmux popup), adds anchored comments with <Space>c, and
-submits with <Space>s or via the dashboard "Submit" action. Multiple open/close
-cycles are supported — the draft persists until explicitly submitted.
+Use when surfacing a document the user should annotate per-line rather than pick options on. For a global yes/no, use \`sis ask approve\`. For named alternatives, use \`sis ask deck submit\`.
 
-Use when surfacing a document (design, plan, spec, completion summary) the user should annotate per-line rather than pick options on. For a global yes/no, use \`sis ask approve\`. For named alternatives, use \`sis ask deck submit\`.
+Branches
+  submit <file>      Submit a .md file for review; blocks until the user submits.   | use when you have a markdown document to send for annotation
+  open <askId>       Open a pending review in the current terminal.                  | use when launching the editor session from the dashboard popup
+  complete <askId>   Finalize a pending review from draft without editing.           | use when programmatically submitting a draft without opening an editor
+`;
 
-Input: <file> must exist and end in \`.md\`.
+const REVIEW_SUBMIT_HELP = `
+review submit: submit a markdown file for line-anchored annotation. Blocks until the user submits.
 
-Output (on submit):
-  { askId, file, output: { kind: 'review', feedback: { ... }, completedAt } }
+Input
+  <file>              required — must exist and end in .md
+  --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
 
-FeedbackResult fields: file, submitted, approved, comments[{ line, endLine, lineText, quote?, colStart?, colEnd?, comment, createdAt }], submittedAt, savedAt.
+Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+  { "askId", "file", "output": { "kind": "review", "feedback": { ... }, "completedAt" } }
+  FeedbackResult fields: file, submitted, approved, comments[{ line, endLine, lineText, quote?, colStart?, colEnd?, comment, createdAt }], submittedAt, savedAt.
+  on error: stderr diagnostic + non-zero exit
+
+Effects
+  Creates an ask in the session store, blocks until the user submits the review, then marks it answered.
+
+Exit codes: 0 ok | 2 usage (file not found, not .md, missing session)
+`;
+
+const REVIEW_OPEN_HELP = `
+review open: open a pending review in the current terminal for editing. Used internally by the dashboard popup.
+
+Input
+  <askId>             required — 26-character ULID of a pending review ask
+  --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
+
+Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+  { "askId", "submitted": boolean, "comments": number }
+  on error: stderr diagnostic + non-zero exit
+
+Effects
+  Launches an editor session. If the user submits, writes the review output to the ask store.
+
+Exit codes: 0 ok | 2 usage (invalid askId, not a review, missing session)
+`;
+
+const REVIEW_COMPLETE_HELP = `
+review complete: finalize a pending review from the current draft without opening an editor.
+
+Input
+  <askId>             required — 26-character ULID of a pending review ask
+  --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
+
+Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+  { "askId", "submitted": true, "comments": number }
+  on error: stderr diagnostic + non-zero exit
+
+Effects
+  Reads the current draft from the ask store, marks the review submitted, and writes output. approved is true when comments.length === 0.
+
+Exit codes: 0 ok | 2 usage (invalid askId, not a review, missing session)
 `;
 
 const STATE_HELP = `
@@ -180,44 +245,95 @@ Inspect ask state for the current session. Pure reads — no submission, no writ
 
 Normal flow: when you submit an ask in the current turn, the bash completion delivers stdout — no \`state\` calls needed. Reach for these only on recovery.
 
-Leaves
+Branches
   poll <askId>   Block on a known askId.    | use when respawning into a session with a pending ask owned by you
   peek <askId>   Non-blocking status read.  | use when checking status without committing to wait
   list           Pending asks for session.  | use when recovering from a daemon restart or auditing open asks
 `;
 
 const STATE_POLL_HELP = `
-Block until <askId> resolves, then print the same { responses, completedAt } JSON that \`deck submit\` would return.
+state poll: block until <askId> resolves, then print the output JSON.
 
-Recovery-only. If you respawn and find an ask on disk owned by you with status pending or in-progress, poll re-attaches. Never poll an ask you submitted in the current turn — wait for the original bash to complete.
+Recovery-only. If you respawn and find a pending ask owned by you, poll re-attaches. Never poll an ask you submitted in the current turn — wait for the original bash to complete.
+
+Input
+  <askId>             required — 26-character ULID
+  --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
+
+Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+  Same JSON as the original submitting command would have returned ({ responses, completedAt } for decks; { kind: 'review', feedback, completedAt } for reviews).
+  on error: stderr diagnostic + non-zero exit
+
+Effects
+  Marks the ask answered (idempotent).
+
+Exit codes: 0 ok | 2 usage (invalid askId, not found, missing session)
 `;
 
 const STATE_PEEK_HELP = `
-Print { askId, status, completedAt?, output? } for <askId> without blocking. Status is one of: pending | in-progress | answered | not-found.
+state peek: print status for <askId> without blocking. Returns immediately.
 
-Diagnostics surface. Use to decide whether to poll or to skip an orphaned ask. Returns immediately.
+Diagnostics surface. Use to decide whether to poll or to skip an orphaned ask.
+
+Input
+  <askId>             required — 26-character ULID
+  --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
+
+Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+  { "askId", "status": "pending" | "in-progress" | "answered" | "not-found", "completedAt"?, "output"? }
+  on error: stderr diagnostic + non-zero exit
+
+Effects
+  None. Read-only.
+
+Exit codes: 0 ok | 2 usage (invalid askId, missing session)
 `;
 
 const STATE_LIST_HELP = `
-List pending and in-progress asks for the current session, oldest first.
+state list: list pending and in-progress asks for the current session, oldest first.
 
-Output: { items: [{askId, title?, kind?, askedAt, blocking, askedBy}], next_cursor, total }
+Input
+  --limit <n>         optional — max items to return (default 20, max 100)
+  --cursor <c>        optional — opaque pagination token from a previous next_cursor
+  --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
 
-Sorted by askedAt ascending. Pagination is cursor-based: pass the previous response's \`next_cursor\` to the next call; null means end of list. \`total\` is the count across all pages.
+Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+  { "items": [{ "askId", "title"?, "kind"?, "askedAt", "blocking", "askedBy" }], "next_cursor": string | null, "total": number }
+  Pass next_cursor to the next call to page; null means end of list.
+  on error: stderr diagnostic + non-zero exit
+
+Effects
+  None. Read-only.
+
+Exit codes: 0 ok | 2 usage (invalid --limit or --cursor, missing session)
 `;
 
 const SHOW_HELP = `
-Live-display a file in a tmux pane (passthrough to humanloop's renderer). No response captured.
+show: live-display a file in a tmux pane. No response captured.
 
-Use to surface context the user should glance at while you work — a generated diagram, a status report, a diff. For documents the user should annotate, use \`sis ask review\` instead.
+Use to surface context the user should glance at while you work — a generated diagram, a status report, a diff. For documents the user should annotate, use \`sis ask review submit\` instead. Degrades gracefully outside tmux.
 
-Degrades gracefully outside tmux: returns { pane_id: null, reason } and exits 0.
+Input
+  <path>              required — path to the file to display
+  --watch             optional — live-update the pane on edits
+  --window <mode>     optional — pane placement: auto, split, or new (default auto)
+
+Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+  { "pane_id": string | null, "reason": string | null }
+  pane_id is null when not in tmux or renderer unavailable.
+  on error: stderr diagnostic + non-zero exit
+
+Effects
+  Opens or updates a tmux pane displaying the file. No ask is created.
+
+Exit codes: 0 ok | 2 usage (invalid --window value)
 `;
 
 export function registerAsk(program: Command): void {
   const ask = program
     .command('ask')
     .description('Surface a question, gate, notification, or document to the user')
+    .addHelpText('before', '\nask: human-in-the-loop decks. submit (post + block), poll (block on existing ask), peek (non-blocking status).\n')
     .addHelpText('after', ROOT_HELP)
     .action(() => {
       ask.help();
@@ -261,27 +377,37 @@ export function registerAsk(program: Command): void {
       await notify(title, opts);
     });
 
-  ask
-    .command('review <file>')
-    .description('Anchored-comment review of a markdown file; blocks until the user submits')
+  const reviewCmd = ask
+    .command('review')
+    .description('Line-by-line markdown annotation workflow; blocks until the user submits')
+    .addHelpText('after', REVIEW_BRANCH_HELP)
+    .action(() => {
+      reviewCmd.help();
+    });
+
+  reviewCmd
+    .command('submit <file>')
+    .description('Submit a markdown file for anchored-comment review; blocks until the user submits')
     .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
-    .addHelpText('after', REVIEW_HELP)
+    .addHelpText('after', REVIEW_SUBMIT_HELP)
     .action(async (file: string, opts: { session?: string }) => {
       await review(file, opts);
     });
 
-  ask
-    .command('review-open <askId>')
+  reviewCmd
+    .command('open <askId>')
     .description('Open a pending review in the current terminal (used internally by the dashboard popup)')
     .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
+    .addHelpText('after', REVIEW_OPEN_HELP)
     .action(async (askId: string, opts: { session?: string }) => {
       await reviewOpen(askId, opts);
     });
 
-  ask
-    .command('review-submit <askId>')
+  reviewCmd
+    .command('complete <askId>')
     .description('Finalize a pending review using the current draft (no editor)')
     .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
+    .addHelpText('after', REVIEW_COMPLETE_HELP)
     .action(async (askId: string, opts: { session?: string }) => {
       await reviewSubmit(askId, opts);
     });
@@ -600,13 +726,13 @@ async function review(file: string, opts: { session?: string }): Promise<void> {
   if (!existsSync(abs)) {
     exitUsage('file-not-found', `file not found: ${abs}`, {
       received: abs,
-      next: 'sis ask review <file> (provide a valid path to an existing .md file)',
+      next: 'sis ask review submit <file> (provide a valid path to an existing .md file)',
     });
   }
   if (!abs.endsWith('.md')) {
     exitUsage('invalid-file', `review requires a .md file: ${abs}`, {
       received: abs,
-      next: 'sis ask review <file> (file must end in .md)',
+      next: 'sis ask review submit <file> (file must end in .md)',
     });
   }
   const { askId, output } = await submitReview(abs, opts);

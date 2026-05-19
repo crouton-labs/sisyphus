@@ -4,6 +4,7 @@ import { existsSync, readFileSync, writeFileSync, renameSync, readdirSync } from
 import { contextDir, sessionsDir } from '../../shared/paths.js';
 import type { RequirementStatus } from '../../shared/requirements-types.js';
 import { exitUsage } from '../errors.js';
+import { emitJsonOk } from '../output.js';
 
 // Keeps the JSON Schema enum in sync with the TS union.
 const _statusCheck: RequirementStatus[] = ['draft', 'question', 'approved', 'rejected', 'deferred'];
@@ -52,21 +53,34 @@ export function registerReview(program: Command): void {
     .option('--export', 'Render requirements.json into requirements.md (no LLM tokens; overwrites existing requirements.md)')
     .option('--force', 'With --export: overwrite existing requirements.md even if hand-edited; existing file is moved to requirements.md.bak before overwrite')
     .addHelpText('after', `
-File resolution (first match wins):
+session inspect requirements: export, validate, and inspect EARS requirements.
+
+Input
+  [file]              optional — path to requirements.json; auto-detected from session if omitted
+  --session-id <id>   optional — session ID for auto-detection
+  --cwd <path>        optional — project directory for auto-detection
+  --schema            optional — emit the requirements.json JSON Schema and exit
+  --annotated         optional — emit the annotated writing guide and exit
+  --export            optional — render requirements.json to requirements.md and emit the output path
+  --force             optional — with --export: overwrite even if hand-edited (backs up to .bak)
+
+File resolution (first match wins)
   1. Positional [file] argument
-  2. --session-id (or SISYPHUS_SESSION_ID env) → .sisyphus/sessions/<id>/context/requirements.json
+  2. --session-id (or $SISYPHUS_SESSION_ID) → .sisyphus/sessions/<id>/context/requirements.json
   3. Most recent session with a requirements.json
 
-Examples:
-  $ sis session inspect requirements                              Auto-detect from current session
-  $ sis session inspect requirements path/to/requirements.json    Open a specific file
-  $ sis session inspect requirements --session-id abc123           Target a specific session
-  $ sis session inspect requirements --schema                     Print the JSON schema
-  $ sis session inspect requirements --annotated                  Print schema with writing guidance
-  $ sis session inspect requirements --export                       Render requirements.md from JSON
-  $ sis session inspect requirements --export --session-id abc123   Target a specific session
-  $ sis session inspect requirements --export --force               Overwrite even if hand-edited
-`)
+Output (stdout, JSON)
+  --export:    { ok, schema_version: 1, data: { path } }  — path is the absolute path of the written requirements.md
+  --schema:    { ok, schema_version: 1, data: <schema object> }
+  --annotated: { ok, schema_version: 1, data: { markdown } }  — markdown is the annotated guide body string
+  on error:    { ok: false, schema_version: 1, error: { code, message } }
+
+Effects
+  --export: Writes requirements.md alongside the source requirements.json.
+  --force: Backs up existing requirements.md to requirements.md.bak before overwriting.
+  --schema, --annotated: None. Read-only.
+
+Exit codes: 0 ok | 2 usage.`)
     .action(async (file, opts) => {
       if (opts.force && !opts.export) {
         exitUsage('invalid-flags', '--force requires --export', {
@@ -112,15 +126,15 @@ Examples:
 
         writeFileSync(tmpPath, rendered, 'utf-8');
         renameSync(tmpPath, outPath);
-        process.stdout.write(resolve(outPath) + '\n');
+        emitJsonOk({ path: resolve(outPath) });
         return;
       }
       if (opts.schema) {
-        process.stdout.write(JSON.stringify(REQUIREMENTS_SCHEMA, null, 2) + '\n');
+        emitJsonOk(REQUIREMENTS_SCHEMA as unknown as Record<string, unknown>);
         return;
       }
       if (opts.annotated) {
-        process.stdout.write(REQUIREMENTS_ANNOTATED + '\n');
+        emitJsonOk({ markdown: REQUIREMENTS_ANNOTATED });
         return;
       }
     });

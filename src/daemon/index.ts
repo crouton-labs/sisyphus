@@ -9,12 +9,7 @@ import { execSync } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { globalDir, daemonPidPath, statePath } from '../shared/paths.js';
 
-// Patch console to prepend timestamps in log output
-const ts = () => new Date().toISOString();
-const origLog = console.log.bind(console);
-const origError = console.error.bind(console);
-console.log = (...args: unknown[]) => origLog(`[${ts()}]`, ...args);
-console.error = (...args: unknown[]) => origError(`[${ts()}]`, ...args);
+import { Command } from 'commander';
 import { loadConfig } from '../shared/config.js';
 import { startServer, stopServer, registerSessionCwd, registerSessionTmux, loadSessionRegistry, setCompositor } from './server.js';
 import { sweepOrphans } from './orphan-sweep.js';
@@ -377,58 +372,144 @@ async function startDaemon(): Promise<void> {
 
 process.title = 'sisyphusd';
 
-const command = process.argv[2];
+// Help requests are intercepted by Commander before any action runs;
+// timestamp-prefix console output only for operational (non-help) paths.
+const isHelpInvocation = process.argv.includes('--help') || process.argv[2] === 'help';
+if (!isHelpInvocation) {
+  const ts = () => new Date().toISOString();
+  const origLog = console.log.bind(console);
+  const origError = console.error.bind(console);
+  console.log = (...args: unknown[]) => origLog(`[${ts()}]`, ...args);
+  console.error = (...args: unknown[]) => origError(`[${ts()}]`, ...args);
+}
 
-(async () => {
-  switch (command) {
-    case 'stop':
-      stopDaemon();
-      break;
+const rootHelpText = `sisyphusd: long-lived orchestration daemon for sis sessions.
 
-    case 'restart': {
-      stopDaemon();
-      // If launchd is managing the daemon, just exit — it will respawn via KeepAlive
-      if (isLaunchdManaged()) {
-        // Brief poll so we can report the new PID
-        for (let i = 0; i < 6; i++) {
-          await sleep(500);
-          const respawnedPid = readPid();
-          if (respawnedPid) {
-            console.log(`[sisyphus] Daemon restarted (pid ${respawnedPid}) by process manager`);
-            process.exit(0);
-          }
-        }
-        console.log('[sisyphus] Daemon will be restarted by process manager');
-        process.exit(0);
+Subtrees
+  start    boot the daemon and recover sessions     | use when no daemon is running for this user
+  stop     terminate the running daemon             | use to free the IPC socket or before an upgrade
+  restart  stop, then start                          | use after a binary upgrade or config change
+
+Globals
+  --help   print this message
+
+I/O contract: subprocess control (no JSON; this is a process-lifecycle tool, not an agent surface).
+Exit 0 on success, non-zero on failure. Diagnostic output streams to stderr; structured payloads are absent — for session/agent state, use \`sis session inspect status\` and friends.
+`;
+
+const program = new Command()
+  .name('sisyphusd')
+  .description('Long-lived orchestration daemon for sis sessions.')
+  .helpOption('--help', 'print this message')
+  .allowExcessArguments(false)
+  .showSuggestionAfterError(false)
+  .exitOverride((err) => {
+    // Spec: unknown command + unknown option exit with code 2 (not Commander's default 1).
+    if (err.code === 'commander.unknownCommand' || err.code === 'commander.unknownOption' || err.code === 'commander.excessArguments') {
+      // Commander's own message for excessArguments does not include the offending token —
+      // surface it explicitly so the spec contract (stderr names the unknown command) holds.
+      const offender = process.argv[2];
+      if (offender) {
+        process.stderr.write(`error: unknown command '${offender}'\n`);
       }
-      // No process manager — start in-process
-      await startDaemon();
-      break;
+      process.exit(2);
     }
+    if (err.code === 'commander.helpDisplayed' || err.code === 'commander.help') {
+      process.exit(0);
+    }
+    process.exit(err.exitCode ?? 1);
+  })
+  .action(async () => { await startDaemon(); });
 
-    case 'start':
-    case undefined:
-      await startDaemon();
-      break;
+// Preserve the exact existing root help text.
+(program as unknown as { helpInformation(): string }).helpInformation = () => rootHelpText;
 
-    case 'help':
-    case '--help':
-    case '-h':
-      console.log('Usage: sisyphusd [command]');
-      console.log('');
-      console.log('Commands:');
-      console.log('  start     Start the daemon (default if no command given)');
-      console.log('  stop      Stop the running daemon');
-      console.log('  restart   Stop and restart the daemon');
-      console.log('  help      Show this help message');
-      break;
+// `help` subcommand mirrors `--help` at the root: print rootHelpText and exit 0.
+program
+  .command('help')
+  .description('Print sisyphusd help')
+  .helpOption('--help', 'print this message')
+  .action(() => {
+    process.stdout.write(rootHelpText);
+    process.exit(0);
+  });
 
-    default:
-      console.error(`[sisyphus] Unknown command: ${command}`);
-      console.error('Usage: sisyphusd [start|stop|restart|help]');
-      process.exit(1);
-  }
-})().catch((err) => {
+program
+  .command('start')
+  .description('Boot the daemon and recover sessions')
+  .helpOption('--help', 'display help for command')
+  .addHelpText('after', `
+start: launch the sisyphus daemon process.
+
+Input
+  None.
+
+Output (subprocess control; diagnostic text to stderr; no JSON — daemon-control carve-out)
+  Progress messages stream to stderr. Blocks until the daemon event loop is running and sessions are recovered.
+
+Effects
+  Acquires the IPC socket. Writes pid file. Recovers active sessions from registry. Starts pane monitor and heartbeat scanner.
+
+Exit codes: 0 ok | non-zero on failure (diagnostic on stderr).
+`)
+  .action(async () => { await startDaemon(); });
+
+program
+  .command('stop')
+  .description('Terminate the running daemon')
+  .helpOption('--help', 'display help for command')
+  .addHelpText('after', `
+stop: terminate the running daemon process.
+
+Input
+  None.
+
+Output (subprocess control; diagnostic text to stderr; no JSON — daemon-control carve-out)
+  Reports daemon pid and stop status to stderr. Waits up to 5s for graceful SIGTERM; falls back to SIGKILL.
+
+Effects
+  Sends SIGTERM (then SIGKILL if needed). Removes pid file. Releases IPC socket.
+
+Exit codes: 0 ok | non-zero on failure (diagnostic on stderr).
+`)
+  .action(() => { stopDaemon(); });
+
+program
+  .command('restart')
+  .description('Stop, then start the daemon')
+  .helpOption('--help', 'display help for command')
+  .addHelpText('after', `
+restart: stop the running daemon, then start a fresh one.
+
+Input
+  None.
+
+Output (subprocess control; diagnostic text to stderr; no JSON — daemon-control carve-out)
+  Reports stop and start progress to stderr. When launchd manages the daemon, exits after confirming respawn.
+
+Effects
+  Stops the running daemon (SIGTERM/SIGKILL). If launchd-managed, exits and lets launchd respawn via KeepAlive. Otherwise starts the daemon in-process.
+
+Exit codes: 0 ok | non-zero on failure (diagnostic on stderr).
+`)
+  .action(async () => {
+    stopDaemon();
+    if (isLaunchdManaged()) {
+      for (let i = 0; i < 6; i++) {
+        await sleep(500);
+        const respawnedPid = readPid();
+        if (respawnedPid) {
+          console.log(`[sisyphus] Daemon restarted (pid ${respawnedPid}) by process manager`);
+          process.exit(0);
+        }
+      }
+      console.log('[sisyphus] Daemon will be restarted by process manager');
+      process.exit(0);
+    }
+    await startDaemon();
+  });
+
+program.parseAsync(process.argv).catch((err) => {
   console.error('[sisyphus] Fatal error:', err);
   process.exit(1);
 });

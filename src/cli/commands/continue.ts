@@ -13,25 +13,16 @@ export function registerContinue(program: Command): void {
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis session lifecycle continue
-  $ sis session lifecycle continue --session sess-7f2a --json
+Input
+  --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
 
-When to use:
-  After \`complete\`, when you want to keep working in the same session.
+Output (stdout, JSON, schema_version: 1)
+  ok, schema_version: 1, data: { sessionId }
 
-When NOT to use:
-  Use \`sis session lifecycle resume\` instead when restarting with new instructions —
-  resume preserves history; continue wipes the roadmap.
+Effects
+  Clears the session roadmap and resets status to active. History is preserved.
 
-Output:
-  Default       "Session reactivated. Roadmap cleared." then next-step hints.
-  --json        { ok, schema_version: 1, data: { sessionId } }
-
-Exit codes: 0 ok | 2 usage (missing session id) | 3 not_found.
-
-Next on success:
-  Write a new roadmap, then \`sis agent spawn ...\`.`,
+Exit codes: 0 ok | 2 usage (missing session id) | 3 not_found.`,
     )
     .action(async (opts: { session?: string }) => {
       assertTmux();
@@ -47,10 +38,6 @@ Next on success:
       const request: Request = { type: 'continue', sessionId };
       const response = await sendRequest(request);
       if (!response.ok) exitError(response.error);
-      if (emitJsonOk({ sessionId })) return;
-      console.log('Session reactivated. Roadmap cleared.');
-      console.log('');
-      console.log('The previous roadmap has been wiped — you are starting fresh.');
-      console.log('Consider writing a new roadmap before spawning agents.');
+      emitJsonOk({ sessionId }); return;
     });
 }

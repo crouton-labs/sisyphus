@@ -287,9 +287,9 @@ stop_daemon() {
   rm -f "$_DAEMON_SOCK" "$_DAEMON_PID"
 }
 
-# run_doctor — run sisyphus admin doctor, capture output
+# run_doctor — run sis admin doctor, capture output
 run_doctor() {
-  sisyphus admin doctor 2>&1
+  sis admin doctor 2>&1
 }
 
 # assert_not_contains <name> <haystack> <pattern>

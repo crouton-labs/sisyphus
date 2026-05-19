@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Command } from 'commander';
 import { registerCompanion, renderMemory } from '../cli/commands/companion.js';
+import { registerCompanionProfile } from '../cli/commands/companion-profile.js';
 import { setMemoryPathOverride, loadMemoryStrict } from '../daemon/companion-memory.js';
 import { MemoryStoreParseError } from '../shared/companion-types.js';
 import type { CompanionMemoryState, ObservationRecord } from '../shared/companion-types.js';
@@ -53,24 +54,27 @@ describe('sisyphus companion CLI (Phase 4 skeleton)', () => {
     assert.ok(repoOption, '--repo option should be present on memory subcommand');
   });
 
-  it('bare companion command has an action handler', () => {
+  it('bare companion command is a pure parent (no action handler)', () => {
     const program = new Command('sisyphus');
     registerCompanion(program);
     const companion = program.commands.find(c => c.name() === 'companion')!;
     const handler = (companion as unknown as Record<string, unknown>)['_actionHandler'];
     assert.ok(
-      typeof handler === 'function',
-      'companion parent command should still have an action handler',
+      typeof handler !== 'function',
+      'companion parent command should not have an action handler (spec: pure parent)',
     );
   });
 
-  it('bare companion command still registers --name and --badges options', () => {
+  it('companion profile subcommand registers --name and --badges options', () => {
     const program = new Command('sisyphus');
     registerCompanion(program);
     const companion = program.commands.find(c => c.name() === 'companion')!;
-    const longFlags = companion.options.map(o => o.long);
-    assert.ok(longFlags.includes('--name'), '--name should still be on companion');
-    assert.ok(longFlags.includes('--badges'), '--badges should still be on companion');
+    registerCompanionProfile(companion);
+    const profile = companion.commands.find(c => c.name() === 'profile')!;
+    assert.ok(profile, 'profile subcommand should be registered');
+    const longFlags = profile.options.map(o => o.long);
+    assert.ok(longFlags.includes('--name'), '--name should be on companion profile');
+    assert.ok(longFlags.includes('--badges'), '--badges should be on companion profile');
   });
 });
 

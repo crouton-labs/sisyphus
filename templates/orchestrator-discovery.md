@@ -41,7 +41,7 @@ cat > "$decomp_deck" <<'EOF'
   }]
 }
 EOF
-sis ask submit "$decomp_deck"
+sis ask deck submit "$decomp_deck"
 ```
 
 If the user picks one, record the others in `goal.md` under a "Known follow-ups" section, then proceed with the chosen one through the rest of discovery.
@@ -116,7 +116,7 @@ cat > "$confirm_deck" <<'EOF'
   }]
 }
 EOF
-sis ask submit "$confirm_deck"
+sis ask deck submit "$confirm_deck"
 ```
 
 **Branching:**

@@ -11,26 +11,22 @@ export function registerKill(program: Command): void {
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis session lifecycle kill sess-7f2a
-  $ sis session lifecycle kill sess-7f2a --json
+Input
+  <sessionId>        required. Session to kill.
 
-Output:
-  Default       Prose lines on stdout; "Session <id> killed." then cleanup count.
-  --json        { ok, schema_version: 1, data: { sessionId, killedAgents } }
+Output (stdout, JSON, schema_version: 1)
+  ok, schema_version: 1, data: { sessionId, killedAgents }
 
-Exit codes: 0 ok | 3 not_found | 60 transient | see \`sis --help\` for full table.
+Effects
+  Terminates all running agents and stops the session process.
 
-Next on success:
-  $ sis session inspect list                  # confirm the session is gone`,
+Exit codes: 0 ok | 3 not_found | 60 transient.`,
     )
     .action(async (sessionId: string) => {
       const request: Request = { type: 'kill', sessionId };
       const response = await sendRequest(request);
       if (!response.ok) exitError(response.error);
       const killedAgents = (response.data as { killedAgents?: number } | undefined)?.killedAgents ?? 0;
-      if (emitJsonOk({ sessionId, killedAgents })) return;
-      console.log(`Session ${sessionId} killed.`);
-      console.log(`Cleaned up: ${killedAgents} agent(s) killed, tmux window removed.`);
+      emitJsonOk({ sessionId, killedAgents }); return;
     });
 }

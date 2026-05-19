@@ -19,18 +19,19 @@ export function registerAwait(program: Command): void {
     .addHelpText(
       'after',
       `
-Examples:
-  $ sis agent await ag-7f2a-1
-  $ sis agent await ag-7f2a-1 --json | jq -r '.data.report'
+agent await: block until a spawned agent reaches a terminal status.
 
-Behavior:
-  Blocks for up to 24h waiting on the agent. Status header goes to stderr;
-  the agent's report body goes to stdout — pipe to a file safely.
+Input
+  <agentId>          required. Agent to await (e.g. agent-003).
+  --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
 
-Output:
-  Default       Status header on stderr: \`[<status>] <agentId> (<label>)\`
-                Report body on stdout (file contents, ends with newline).
-  --json        { ok, schema_version: 1, data: { agentId, sessionId, status, agentName, agentType, reportPath, report } }
+Output (stdout, JSON)
+  ok, schema_version: 1, data: { agentId, sessionId, status, agentName, agentType, reportPath, report }
+  Warning written to stderr if the report file cannot be read.
+
+Effects
+  Blocks for up to 24h waiting on the agent (socket timeout 86400000 ms). Marks the
+  agent as consumed-inline; its report is suppressed from the next cycle.
 
 Exit codes: 0 ok | 2 usage (missing --session) | 3 not_found (unknown agent) | 60 transient (daemon timeout).`,
     )
@@ -62,15 +63,6 @@ Exit codes: 0 ok | 2 usage (missing --session) | 3 not_found (unknown agent) | 6
         }
       }
 
-      if (emitJsonOk({ agentId, sessionId, status, agentName, agentType, reportPath, report })) return;
-
-      const shortType = agentType && agentType !== 'worker' ? agentType.replace(/^sisyphus:/, '') : '';
-      const label = shortType ? `${shortType}-${agentName}` : agentName;
-      // Status header is diagnostic — emit on stderr so the agent report on
-      // stdout can be piped cleanly to a file or filter.
-      process.stderr.write(`[${status}] ${agentId} (${label})\n`);
-      if (report.length > 0) {
-        process.stdout.write(report.endsWith('\n') ? report : report + '\n');
-      }
+      emitJsonOk({ agentId, sessionId, status, agentName, agentType, reportPath, report }); return;
     });
 }

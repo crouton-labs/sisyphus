@@ -12,7 +12,6 @@ Sisyphus has two parallel skill surfaces, each serving a different audience:
 | Orchestrator-plugin skills | The orchestrator only | `orchestrator-plugin/skills/<name>/SKILL.md` | Always available to the orchestrator across all cycles |
 
 Bundled examples:
-- `agent-plugin/skills/humanloop/SKILL.md` — for agents that need user-loop interaction patterns.
 - `orchestrator-plugin/skills/orchestration/SKILL.md` — strategy and task patterns the orchestrator references when planning cycles.
 
 ## When a skill is the right shape
