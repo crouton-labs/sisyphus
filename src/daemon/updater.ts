@@ -120,7 +120,7 @@ export async function checkAndApply(): Promise<void> {
   }
 }
 
-const UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const UPDATE_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 let updateTimer: ReturnType<typeof setInterval> | null = null;
 
 export function startPeriodicUpdateCheck(): void {
