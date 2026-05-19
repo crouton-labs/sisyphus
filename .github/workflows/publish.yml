@@ -31,8 +31,12 @@ jobs:
 
       # termrender is a runtime dep of parseDeck (src/shared/ask-schema.ts) and
       # is invoked by the ask-schema unit tests run via prepublishOnly.
+      - uses: astral-sh/setup-uv@v3
+
       - name: Install termrender
-        run: pipx install termrender
+        run: |
+          uv tool install termrender
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       # OIDC trusted publishing requires npm >= 11.5.1; Node 22 ships with 10.x.
       # Pin a specific version (not @latest) to avoid the arborist promise-retry
