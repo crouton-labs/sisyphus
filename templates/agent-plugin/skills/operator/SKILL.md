@@ -35,4 +35,4 @@ One line per file in this directory. Add an entry here when you create a new ref
 
 ---
 
-For guidance on what to capture, where to put it (SKILL.md vs new reference file), and naming conventions, run `echo '{"name":"sisyphus/operator-memory"}' | crtr skill read show` (`.content`) before submitting.
+For guidance on what to capture, where to put it (SKILL.md vs new reference file), and naming conventions, run `crtr skill read sisyphus/operator-memory` (`.content`) before submitting.

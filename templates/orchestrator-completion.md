@@ -79,7 +79,7 @@ If a single deck round surfaces multiple moderate items, capture them all in `$n
 These change the goal itself:
 
 1. Update goal.md with the revised scope (record the pivot, per goal.md conventions)
-2. Run `echo '{"name":"sisyphus/orchestration"}' | crtr skill read show` (output JSON has `.content`) and revise strategy.md with the new direction
+2. Run `crtr skill read sisyphus/orchestration` (output JSON has `.content`) and revise strategy.md with the new direction
 3. Yield to discovery mode:
 
 ```bash

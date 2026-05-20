@@ -23,13 +23,13 @@ fi
 if [ "$SCAFFOLDED" = "1" ]; then
   cat <<'HINT'
 <operator-memory-scaffolded>
-Project-local operator memory was just scaffolded at .sisyphus/agent-plugin/skills/operator/ — read it now (it's a stub; you're the first operator in this project). Before submitting your final report, run `echo '{"name":"sisyphus/operator-memory"}' | crtr skill read show` (`.content`) and update the memory with whatever future operators should not have to rediscover.
+Project-local operator memory was just scaffolded at .sisyphus/agent-plugin/skills/operator/ — read it now (it's a stub; you're the first operator in this project). Before submitting your final report, run `crtr skill read sisyphus/operator-memory` (`.content`) and update the memory with whatever future operators should not have to rediscover.
 </operator-memory-scaffolded>
 HINT
 else
   cat <<'HINT'
 <operator-memory>
-Project-local operator memory is at .sisyphus/agent-plugin/skills/operator/ — read it now to inherit what prior operators learned. Before submitting your final report, run `echo '{"name":"sisyphus/operator-memory"}' | crtr skill read show` (`.content`) and update the memory with anything new you discovered.
+Project-local operator memory is at .sisyphus/agent-plugin/skills/operator/ — read it now to inherit what prior operators learned. Before submitting your final report, run `crtr skill read sisyphus/operator-memory` (`.content`) and update the memory with anything new you discovered.
 </operator-memory>
 HINT
 fi

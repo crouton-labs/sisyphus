@@ -38,7 +38,7 @@ Don't guess the target. The product might be a browser page, an Electron app, or
 
 You have a memory file at `.sisyphus/agent-plugin/skills/operator/SKILL.md`, plus per-task-family reference files alongside it. **Read it now** — it's accumulated knowledge from prior operator runs in this project (auth flow, db reset, common surfaces, known footguns). It scaffolds itself on first use; if it looks like a stub, you're the first.
 
-**Before submitting your final report**, run `echo '{"name":"sisyphus/operator-memory"}' | crtr skill read show` (`.content`) — it covers when and how to update the memory so the next operator starts ahead of where you started. For generic skill-authoring conventions (frontmatter, length, structure), defer to `echo '{"name":"claude-authoring:skills"}' | crtr skill read show` (`.content`).
+**Before submitting your final report**, run `crtr skill read sisyphus/operator-memory` (`.content`) — it covers when and how to update the memory so the next operator starts ahead of where you started. For generic skill-authoring conventions (frontmatter, length, structure), defer to `crtr skill read claude-authoring/skills` (`.content`).
 
 ## Unblock Yourself
 

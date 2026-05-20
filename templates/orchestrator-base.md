@@ -103,7 +103,7 @@ goal.md is a plain statement of what "done" looks like — scope boundaries and 
 
 strategy.md defines **how to approach this problem** — the stages, gates, backtrack edges, and behavioral style for this session. It is generated during discovery and progressively updated as the goal crystallizes or shifts.
 
-When writing or substantially revising strategy.md, run `echo '{"name":"sisyphus/orchestration"}' | crtr skill read show` for stage patterns, process shapes, and format guidance (output JSON has `.content`). The `strategy.md` sibling file (get its directory with `echo '{"name":"sisyphus/orchestration"}' | crtr skill read where`, output JSON has `.path`) holds the stage patterns, process shapes, and strategy.md format reference.
+When writing or substantially revising strategy.md, run `crtr skill read sisyphus/orchestration` for stage patterns, process shapes, and format guidance (output JSON has `.content`). The `strategy.md` sibling file (get its directory with `crtr skill read sisyphus/orchestration --no-body`, output JSON has `.path`) holds the stage patterns, process shapes, and strategy.md format reference.
 
 strategy.md tells you:
 - What stages exist and their process flows (detailed for current, sketched for future)

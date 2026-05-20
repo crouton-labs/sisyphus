@@ -84,11 +84,11 @@ The default path is **spawn `sisyphus:problem`**. Override that default only whe
 - The user gave acceptance criteria (or they're trivially derivable) AND
 - You can complete this sentence without hand-waving: "Dialogue isn't needed because ___"
 
-When all three hold, write `goal.md` and run the **clarity-confirmation deck** (below). On approval, run `echo '{"name":"sisyphus/orchestration"}' | crtr skill read show` (output JSON has `.content`), write `strategy.md`, initialize `roadmap.md`, transition to planning.
+When all three hold, write `goal.md` and run the **clarity-confirmation deck** (below). On approval, run `crtr skill read sisyphus/orchestration` (output JSON has `.content`), write `strategy.md`, initialize `roadmap.md`, transition to planning.
 
 **Default — spawn problem** for anything else: vague prompts ("improve X", "fix the auth"), prompts that name a direction without a destination, prompts where multiple valid framings exist, or any case where you can't complete the override sentence above.
 
-For broad scope, spawn explore agents in parallel first to feed problem with grounded context. Yield `--mode discovery` while problem runs. When problem submits with `context/problem.md`, read it and proceed to write `goal.md`, run `echo '{"name":"sisyphus/orchestration"}' | crtr skill read show` (output JSON has `.content`), and transition to planning.
+For broad scope, spawn explore agents in parallel first to feed problem with grounded context. Yield `--mode discovery` while problem runs. When problem submits with `context/problem.md`, read it and proceed to write `goal.md`, run `crtr skill read sisyphus/orchestration` (output JSON has `.content`), and transition to planning.
 
 When problem submits with `context/problem-bifurcation.md` instead, follow the `<bifurcation-reentry>` flow above — re-enter discovery on the chosen sub-problem.
 
@@ -120,7 +120,7 @@ sis ask deck submit "$confirm_deck"
 ```
 
 **Branching:**
-- `proceed` → run `echo '{"name":"sisyphus/orchestration"}' | crtr skill read show` (output JSON has `.content`), write `strategy.md`, initialize `roadmap.md`, transition to planning
+- `proceed` → run `crtr skill read sisyphus/orchestration` (output JSON has `.content`), write `strategy.md`, initialize `roadmap.md`, transition to planning
 - `minor-clarify` → update `goal.md` per `notes`, re-issue this deck
 - `explore-deeper` → spawn `sisyphus:problem`, yield `--mode discovery`
 
@@ -142,7 +142,7 @@ Pick the tier by **novelty of behavior**, not file count:
 
 Apply the tier with `sis session config effort <low|medium|high|xhigh>` — this filters mode templates and agent prompts on subsequent cycles so you only see the guidance that applies. The user can override at any point.
 
-If you change the tier mid-session because scope shifted, the next cycle's prompts adjust automatically; don't manually patch `strategy.md` to match — for strategy guidance run `echo '{"name":"sisyphus/orchestration"}' | crtr skill read show` (output JSON has `.content`).
+If you change the tier mid-session because scope shifted, the next cycle's prompts adjust automatically; don't manually patch `strategy.md` to match — for strategy guidance run `crtr skill read sisyphus/orchestration` (output JSON has `.content`).
 
 </effort-tier>
 
@@ -150,7 +150,7 @@ If you change the tier mid-session because scope shifted, the next cycle's promp
 
 ## Write the strategy
 
-Once the goal is clear and the tier is set, run `echo '{"name":"sisyphus/orchestration"}' | crtr skill read show` for guidance on writing `strategy.md` (output JSON has `.content`). The skill provides stage patterns, the tier-specific default pipeline shape, and the strategy.md format.
+Once the goal is clear and the tier is set, run `crtr skill read sisyphus/orchestration` for guidance on writing `strategy.md` (output JSON has `.content`). The skill provides stage patterns, the tier-specific default pipeline shape, and the strategy.md format.
 
 Strategy generation is usually fast — the shape of the work is often obvious once the goal and tier are settled. Don't overthink it. A wrong strategy gets revised; a missing strategy leaves the orchestrator directionless.
 

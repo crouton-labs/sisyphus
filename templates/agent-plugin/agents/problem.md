@@ -71,7 +71,7 @@ Naturally shift lenses as you explore. Weave them into conversation rather than 
 - **Precedent** — Has this kind of problem been faced before? In this codebase, in open source, in a different domain entirely?
 
 Cycle through these as the conversation unfolds. Each lens reveals something different.
-t MEDIUM+ effort, lenses can also be spawned as parallel sub-agents — run `echo '{"name":"sisyphus/perspective-fanout"}' | crtr skill read show` (`.content`) for two distinct purposes:
+t MEDIUM+ effort, lenses can also be spawned as parallel sub-agents — run `crtr skill read sisyphus/perspective-fanout` (`.content`) for two distinct purposes:
 
 - **Idea generation (early)** — when you want a wide spread of candidate framings unbiased by the conversation so far. Use *before* convergence to seed options. Most of fanout's value lives here, not at the end.
 - **Convergence challenge (late)** — when a framing is solidifying and you want to stress-test it before it locks in.
@@ -225,12 +225,12 @@ Inspect `(choice, notes)` after each turn:
 
 | Signal | Detection | Next action |
 |---|---|---|
-| Ready to draft | `notes` contains any of: `"ready to draft"`, `"looks good"`, `"write it up"`, `"good to go"`, `"let's draft"`, `"draft it"` (case-insensitive substring; multi-word phrases only) | Run `echo '{"name":"sisyphus/problem-document"}' \| crtr skill read show` (`.content`), draft, run sign-off |
-| Stuck / different angle | `notes` contains any of: `"different angle"`, `"going nowhere"`, `"circles back"`, `"in circles"`, `"feels stuck"`, `"need a reframe"` (case-insensitive substring; multi-word phrases only) | Run `echo '{"name":"sisyphus/problem-plateau-breakers"}' \| crtr skill read show` (`.content`) |
+| Ready to draft | `notes` contains any of: `"ready to draft"`, `"looks good"`, `"write it up"`, `"good to go"`, `"let's draft"`, `"draft it"` (case-insensitive substring; multi-word phrases only) | Run `crtr skill read sisyphus/problem-document` (`.content`), draft, run sign-off |
+| Stuck / different angle | `notes` contains any of: `"different angle"`, `"going nowhere"`, `"circles back"`, `"in circles"`, `"feels stuck"`, `"need a reframe"` (case-insensitive substring; multi-word phrases only) | Run `crtr skill read sisyphus/problem-plateau-breakers` (`.content`) |
 | Substantive response | `notes` non-empty AND adds new framing/info; OR `choice` engages a content option with implicit forward motion | Increment `N`, issue next turn deck — preferring root-drilling or candidate-generation over solution-discussion |
 | Mid-turn knowledge gap | A turn surfaces a question you can't answer from what you've read | See "Mid-conversation exploration" below |
-| Idea generation desired | Agent assessment: option space feels narrow, or framings are converging too early — want fresh framings unbiased by the conversation | (medium+ only) run `echo '{"name":"sisyphus/perspective-fanout"}' \| crtr skill read show` (`.content`) for early idea generation |
-| Convergence forming | Agent assessment: `N >= 4`, framing solidifying, want to stress-test before locking in | (medium+ only) run `echo '{"name":"sisyphus/perspective-fanout"}' \| crtr skill read show` (`.content`) for convergence challenge |
+| Idea generation desired | Agent assessment: option space feels narrow, or framings are converging too early — want fresh framings unbiased by the conversation | (medium+ only) run `crtr skill read sisyphus/perspective-fanout` (`.content`) for early idea generation |
+| Convergence forming | Agent assessment: `N >= 4`, framing solidifying, want to stress-test before locking in | (medium+ only) run `crtr skill read sisyphus/perspective-fanout` (`.content`) for convergence challenge |
 | Drifting into HOW | Three or more consecutive turns spent on implementation/approach rather than problem definition | Self-correct: next turn returns to "what's the actual problem we're addressing, and is it the right one?" |
 | Bifurcation recognized | The conversation has revealed independent sub-problems, not sub-parts of one problem | Use the bifurcation exit (see `<bifurcation>` below) |
 
@@ -258,7 +258,7 @@ This pattern is what keeps the conversation grounded as it deepens. Without it, 
 
 ### 5. Drafting
 
-When the routing matrix signals "ready to draft", run `echo '{"name":"sisyphus/problem-document"}' | crtr skill read show` (`.content`) for design principles and the anchor example. Write `$SISYPHUS_SESSION_DIR/context/problem.draft.md`, render it for review, and issue the sign-off deck.
+When the routing matrix signals "ready to draft", run `crtr skill read sisyphus/problem-document` (`.content`) for design principles and the anchor example. Write `$SISYPHUS_SESSION_DIR/context/problem.draft.md`, render it for review, and issue the sign-off deck.
 
 ```bash
 printf '{"path":"%s"}' "$SISYPHUS_SESSION_DIR/context/problem.draft.md" | crtr human show >/dev/null
