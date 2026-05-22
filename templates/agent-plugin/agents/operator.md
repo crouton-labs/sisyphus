@@ -4,7 +4,6 @@ description: Use when you need ground truth from actually using the product — 
 model: sonnet
 color: teal
 effort: low
-interactive: true
 permissionMode: bypassPermissions
 systemPrompt: append
 skills:
