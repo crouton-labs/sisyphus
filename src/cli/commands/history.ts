@@ -379,8 +379,10 @@ Input
 
 Output (stdout, JSON)
   list mode:   { ok, data: { sessions: [SessionSummary, ...] } }
+               sessions sorted by startedAt descending (most recent first).
   detail mode: { ok, data: { session: SessionSummary } }
   events mode: { ok, data: { events: [HistoryEvent, ...] } }
+               events in chronological append order (oldest first).
   stats mode:  { ok, data: { total, completed, killed, avgActiveMs, avgEfficiency, ... } }
   on error:    { ok: false, error: { code, message } }
 

@@ -17,8 +17,8 @@ export function registerCompanionProfile(companion: Command): void {
 companion profile: retrieve the combined companion profile.
 
 Input
-  --name    optional. Set companion name (persisted on the daemon).
-  --badges  optional boolean. Include full badge catalog with unlock status in output.
+  --name NAME  optional. Set companion name (persisted on the daemon).
+  --badges     optional boolean. Include full badge catalog with unlock status in output.
 
 Output (stdout, JSON)
   ok, data: { name, level, title, mood, xp, stats, achievements, repos, lastCommentary, badges? }

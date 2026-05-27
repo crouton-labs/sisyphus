@@ -14,7 +14,7 @@ export function registerRollback(program: Command): void {
       `
 Input
   <sessionId>        required. Session to roll back.
-  --cycle            required. Target cycle boundary (positive integer >= 1).
+  --cycle N          required. Target cycle boundary (positive integer >= 1).
 
 Output (stdout, JSON)
   ok, data: { sessionId, restoredToCycle }

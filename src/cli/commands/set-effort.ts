@@ -17,7 +17,7 @@ export function registerSessionEffort(program: Command): void {
       `
 Input
   <sessionId>    required. Session to reconfigure.
-  --tier         required. Effort level: low | medium | high | xhigh.
+  --tier LEVEL   required. Effort level: low | medium | high | xhigh.
 
 Output (stdout, JSON)
   ok, data: { sessionId, effort }

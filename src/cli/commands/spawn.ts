@@ -24,7 +24,6 @@ agent spawn: spawn a worker agent. Returns immediately. Reads instruction from s
 
 Input
   stdin              required. Task instruction; treated as the agent's prompt.
-                     Pipe content directly: \`cat task.md | sis agent spawn …\`.
   --stdin            optional boolean. Required when running interactively to
                      force-read stdin (mirrors \`sis session lifecycle start\`).
   --agent-type TYPE  required. Agent template (e.g. sisyphus:debug, devcore:programmer).
@@ -33,7 +32,9 @@ Input
   --session ID       optional. Defaults to $SISYPHUS_SESSION_ID.
 
 Output (stdout, JSON)
-  ok, data: { agentId, sessionId, agentType, name }
+  ok, data: { agentId, sessionId, agentType, name, follow_up }
+  follow_up          string. Recommended next call: \`sis agent await <agentId>\`
+                     to block until the agent reaches a terminal status.
 
 Effects
   Persists an agent record under the session. Spawns a tmux pane running Claude.
@@ -132,6 +133,6 @@ Exit codes: 0 ok | 2 usage | 3 not_found (unknown session) | 5 conflict.`,
       const response = await sendRequest(request);
       if (!response.ok) exitError(response.error);
       const agentId = response.data?.agentId as string;
-      emitJsonOk({ agentId, sessionId, agentType, name: agentName }); return;
+      emitJsonOk({ agentId, sessionId, agentType, name: agentName, follow_up: `sis agent await ${agentId}` }); return;
     });
 }
