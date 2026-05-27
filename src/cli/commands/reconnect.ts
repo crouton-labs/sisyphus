@@ -15,8 +15,8 @@ export function registerReconnect(program: Command): void {
 Input
   <session-id>       required. ID of the orphaned session to reattach.
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { sessionId, tmuxSessionName, tmuxWindowId }
+Output (stdout, JSON)
+  ok, data: { sessionId, tmuxSessionName, tmuxWindowId }
 
 Effects
   Registers the existing tmux session with the daemon. No orchestrator is spawned and no session state changes.

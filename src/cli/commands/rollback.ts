@@ -16,8 +16,8 @@ Input
   <sessionId>        required. Session to roll back.
   --cycle            required. Target cycle boundary (positive integer >= 1).
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { sessionId, restoredToCycle }
+Output (stdout, JSON)
+  ok, data: { sessionId, restoredToCycle }
 
 Effects
   Restores session state to the specified cycle boundary; discards all later cycle data.

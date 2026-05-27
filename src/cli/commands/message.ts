@@ -25,7 +25,7 @@ Input
   --agent <agentId>  optional. Routes to a specific agent inbox instead of orchestrator.
 
 Output (stdout, JSON)
-  ok, schema_version: 1, data: { sessionId, agentId? }
+  ok, data: { sessionId, agentId? }
 
 Effects
   Queues the message in the daemon inbox for the target; delivered on next cycle.

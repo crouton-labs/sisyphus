@@ -33,7 +33,7 @@ Input
   --session ID       optional. Defaults to $SISYPHUS_SESSION_ID.
 
 Output (stdout, JSON)
-  ok, schema_version: 1, data: { agentId, sessionId, agentType, name }
+  ok, data: { agentId, sessionId, agentType, name }
 
 Effects
   Persists an agent record under the session. Spawns a tmux pane running Claude.

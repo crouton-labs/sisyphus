@@ -18,8 +18,8 @@ Input
   <agentId>          required. Agent to kill (e.g. agent-003).
   --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { sessionId, agentId }
+Output (stdout, JSON)
+  ok, data: { sessionId, agentId }
 
 Effects
   Sends a kill signal to the agent's tmux pane and marks the agent terminated in daemon state.

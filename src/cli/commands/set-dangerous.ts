@@ -21,7 +21,7 @@ Input:
   --state        on|off|toggle — desired dangerous-mode state (default: toggle).
 
 Output (stdout, JSON)
-  ok, schema_version: 1, data: { sessionId, enabled, flushed }
+  ok, data: { sessionId, enabled, flushed }
 
 Effects:
   Sets dangerousMode on the session; flushes any pending asks if enabling.

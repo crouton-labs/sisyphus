@@ -22,8 +22,8 @@ Input
   --strategy         optional. Copy strategy.md from the source session.
   --name <name>      optional. Name for the cloned session.
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { sessionId, tmuxSessionName, goal }
+Output (stdout, JSON)
+  ok, data: { sessionId, tmuxSessionName, goal }
 
 Effects
   Creates a new independent session with its own roadmap, tmux session, and state.

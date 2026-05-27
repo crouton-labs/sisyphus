@@ -16,8 +16,8 @@ Input
   <sessionId>        required. Session to delete.
   --cwd <path>       optional. Project directory; defaults to $SISYPHUS_CWD or cwd.
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { sessionId }
+Output (stdout, JSON)
+  ok, data: { sessionId }
 
 Effects
   Permanently removes state.json, logs, and all pane records for the session.

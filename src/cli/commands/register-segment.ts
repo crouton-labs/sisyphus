@@ -23,8 +23,8 @@ Input
   --bg <color>       required. Background hex color (e.g. #2d2f33).
   --content <tmux>   required. tmux format string content.
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { id }
+Output (stdout, JSON)
+  ok, data: { id }
 
 Effects
   Registers or replaces the named segment in the status bar.

@@ -18,8 +18,8 @@ Input
   --report <report>  required. Final completion report text.
   --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { sessionId }
+Output (stdout, JSON)
+  ok, data: { sessionId }
 
 Effects
   Marks the session as completed in daemon state. Orchestrator-only; sub-agents

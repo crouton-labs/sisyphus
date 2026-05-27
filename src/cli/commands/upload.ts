@@ -30,7 +30,7 @@ Input
   --cwd <path>    project directory override (default: SISYPHUS_CWD env var or cwd).
 
 Output (stdout, JSON envelope)
-  { ok, schema_version: 1, data: { sessionId, storageKey } }
+  { ok, data: { sessionId, storageKey } }
 
 Effects
   Exports session to a temporary zip file, POSTs it to the configured upload URL,

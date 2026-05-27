@@ -98,7 +98,7 @@ Input
   --paste-only       optional. Paste without pressing Enter; caller submits manually.
 
 Output (stdout, JSON)
-  ok, schema_version: 1, data: { target, submit }
+  ok, data: { target, submit }
 
 Effects
   Types text into the orchestrator tmux pane and optionally submits it.
@@ -138,7 +138,7 @@ Input
   --paste-only       optional. Paste without pressing Enter; caller submits manually.
 
 Output (stdout, JSON)
-  ok, schema_version: 1, data: { target, submit }
+  ok, data: { target, submit }
 
 Effects
   Types text into the agent tmux pane and optionally submits it.

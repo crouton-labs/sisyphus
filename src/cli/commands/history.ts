@@ -378,12 +378,11 @@ Input
   --limit <n>         optional — max sessions returned in list mode; default 20
 
 Output (stdout, JSON)
-  list mode:   { ok, schema_version: 1, data: { sessions: [SessionSummary, ...] } }
-  detail mode: { ok, schema_version: 1, data: { session: SessionSummary } }
-  events mode: { ok, schema_version: 1, data: { events: [HistoryEvent, ...] } }
-  stats mode:  { ok, schema_version: 1, data: { total, completed, killed, avgActiveMs, avgEfficiency, ... } }
-  on error:    { ok: false, schema_version: 1, error: { code, message } }
-  All responses carry schema_version: 1.
+  list mode:   { ok, data: { sessions: [SessionSummary, ...] } }
+  detail mode: { ok, data: { session: SessionSummary } }
+  events mode: { ok, data: { events: [HistoryEvent, ...] } }
+  stats mode:  { ok, data: { total, completed, killed, avgActiveMs, avgEfficiency, ... } }
+  on error:    { ok: false, error: { code, message } }
 
 Effects
   None. Read-only.

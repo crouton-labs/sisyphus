@@ -16,7 +16,7 @@ Input
   None.
 
 Output (stdout, JSON)
-  ok, schema_version: 1, data: { agentTypes: [{qualifiedName, source, description}, ...] }
+  ok, data: { agentTypes: [{qualifiedName, source, description}, ...] }
   Sorted by qualifiedName ascending. No pagination — the catalog is bounded.
 
 Effects

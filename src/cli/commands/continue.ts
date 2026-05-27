@@ -16,8 +16,8 @@ export function registerContinue(program: Command): void {
 Input
   --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { sessionId }
+Output (stdout, JSON)
+  ok, data: { sessionId }
 
 Effects
   Clears the session roadmap and resets status to active. History is preserved.

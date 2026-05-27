@@ -24,8 +24,8 @@ Input
   --session <id>      optional. Defaults to $SISYPHUS_SESSION_ID.
   stdin               optional. Read when neither --message nor --stdin is given.
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { sessionId, agentId }
+Output (stdout, JSON)
+  ok, data: { sessionId, agentId }
 
 Effects
   Records an intermediate checkpoint in the orchestrator; the agent keeps running.

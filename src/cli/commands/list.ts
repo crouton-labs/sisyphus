@@ -61,7 +61,7 @@ Input
   --all             optional boolean. Include sessions from all project directories.
   --cwd PATH        optional. Project directory override; default is $SISYPHUS_CWD or cwd.
 
-Output (stdout, JSON, schema_version: 2)
+Output (stdout, JSON)
   items        object[]. Sorted by createdAt ascending; stable across pages.
                Fields: {id, name?, task, status, agentCount, createdAt, cwd?, handoff?}.
   next_cursor  string | null. Pass to the next call. null on the last page.
@@ -122,7 +122,7 @@ Exit codes: 0 ok | 2 usage | 3 not_found.`)
       const total = requestedScope.length;
 
       process.stdout.write(
-        JSON.stringify({ ok: true, schema_version: 2, data: { items: page, next_cursor, total } }) + '\n',
+        JSON.stringify({ ok: true, data: { items: page, next_cursor, total } }) + '\n',
       );
     });
 }

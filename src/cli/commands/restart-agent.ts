@@ -18,8 +18,8 @@ Input
   <agentId>          required. Agent to restart (e.g. agent-003).
   --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { sessionId, agentId }
+Output (stdout, JSON)
+  ok, data: { sessionId, agentId }
 
 Effects
   Spawns the agent in a new tmux pane; previous pane is discarded.

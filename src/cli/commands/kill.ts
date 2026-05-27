@@ -14,8 +14,8 @@ export function registerKill(program: Command): void {
 Input
   <sessionId>        required. Session to kill.
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { sessionId, killedAgents }
+Output (stdout, JSON)
+  ok, data: { sessionId, killedAgents }
 
 Effects
   Terminates all running agents and stops the session process.

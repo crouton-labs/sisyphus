@@ -19,7 +19,7 @@ Input
   --cwd <path>       optional — working directory of the session; defaults to process cwd.
 
 Output (stdout, JSON)
-  ok, schema_version: 1, data: { sessionId, context }
+  ok, data: { sessionId, context }
 
 Effects
   None. Read-only.

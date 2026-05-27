@@ -21,7 +21,7 @@ Input
   --badges  optional boolean. Include full badge catalog with unlock status in output.
 
 Output (stdout, JSON)
-  ok, schema_version: 1, data: { name, level, title, mood, xp, stats, achievements, repos, lastCommentary, badges? }
+  ok, data: { name, level, title, mood, xp, stats, achievements, repos, lastCommentary, badges? }
 
 Effects
   If --name is provided, updates the companion name on the daemon.

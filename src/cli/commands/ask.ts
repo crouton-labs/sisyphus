@@ -121,7 +121,7 @@ Input
   <file>              required — path to a valid deck JSON file
   --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
 
-Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+Output (stdout, bare JSON — NOT the standard {ok, data} envelope)
   { "responses": [{ "id", "selectedOptionId"?, "freetext"? }, ...], "completedAt" }
   Branch on each response by its interaction \`id\`.
   on error: stderr diagnostic + non-zero exit
@@ -145,7 +145,7 @@ Input
   --body <b>          optional — markdown body describing what the user is approving
   --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
 
-Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+Output (stdout, bare JSON — NOT the standard {ok, data} envelope)
   { "askId", "approved": boolean, "completedAt", "responses" }
   on error: stderr diagnostic + non-zero exit
 
@@ -167,7 +167,7 @@ Input
   --body <b>          optional — markdown body
   --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
 
-Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+Output (stdout, bare JSON — NOT the standard {ok, data} envelope)
   { "askId" }
   on error: stderr diagnostic + non-zero exit
 
@@ -195,7 +195,7 @@ Input
   <file>              required — must exist and end in .md
   --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
 
-Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+Output (stdout, bare JSON — NOT the standard {ok, data} envelope)
   { "askId", "file", "output": { "kind": "review", "feedback": { ... }, "completedAt" } }
   FeedbackResult fields: file, submitted, approved, comments[{ line, endLine, lineText, quote?, colStart?, colEnd?, comment, createdAt }], submittedAt, savedAt.
   on error: stderr diagnostic + non-zero exit
@@ -213,7 +213,7 @@ Input
   <askId>             required — 26-character ULID of a pending review ask
   --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
 
-Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+Output (stdout, bare JSON — NOT the standard {ok, data} envelope)
   { "askId", "submitted": boolean, "comments": number }
   on error: stderr diagnostic + non-zero exit
 
@@ -230,7 +230,7 @@ Input
   <askId>             required — 26-character ULID of a pending review ask
   --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
 
-Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+Output (stdout, bare JSON — NOT the standard {ok, data} envelope)
   { "askId", "submitted": true, "comments": number }
   on error: stderr diagnostic + non-zero exit
 
@@ -260,7 +260,7 @@ Input
   <askId>             required — 26-character ULID
   --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
 
-Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+Output (stdout, bare JSON — NOT the standard {ok, data} envelope)
   Same JSON as the original submitting command would have returned ({ responses, completedAt } for decks; { kind: 'review', feedback, completedAt } for reviews).
   on error: stderr diagnostic + non-zero exit
 
@@ -279,7 +279,7 @@ Input
   <askId>             required — 26-character ULID
   --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
 
-Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+Output (stdout, bare JSON — NOT the standard {ok, data} envelope)
   { "askId", "status": "pending" | "in-progress" | "answered" | "not-found", "completedAt"?, "output"? }
   on error: stderr diagnostic + non-zero exit
 
@@ -297,7 +297,7 @@ Input
   --cursor <c>        optional — opaque pagination token from a previous next_cursor
   --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
 
-Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+Output (stdout, bare JSON — NOT the standard {ok, data} envelope)
   { "items": [{ "askId", "title"?, "kind"?, "askedAt", "blocking", "askedBy" }], "next_cursor": string | null, "total": number }
   Pass next_cursor to the next call to page; null means end of list.
   on error: stderr diagnostic + non-zero exit
@@ -318,7 +318,7 @@ Input
   --watch             optional — live-update the pane on edits
   --window <mode>     optional — pane placement: auto, split, or new (default auto)
 
-Output (stdout, bare JSON — NOT the standard {ok, schema_version, data} envelope)
+Output (stdout, bare JSON — NOT the standard {ok, data} envelope)
   { "pane_id": string | null, "reason": string | null }
   pane_id is null when not in tmux or renderer unavailable.
   on error: stderr diagnostic + non-zero exit

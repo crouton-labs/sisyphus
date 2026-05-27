@@ -25,7 +25,7 @@ Input
   stdin              optional. Piped input used as report when --report is omitted.
 
 Output (stdout, JSON)
-  ok, schema_version: 1, data: { sessionId, agentId }
+  ok, data: { sessionId, agentId }
 
 Effects
   Persists the report, closes the agent pane, and signals the daemon. The orchestrator

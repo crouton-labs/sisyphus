@@ -117,7 +117,6 @@ describe('requirements export', () => {
     const firstStdout = runRequirementsExport(requirementsPath).toString('utf-8').trim();
     const firstEnvelope = JSON.parse(firstStdout);
     assert.equal(firstEnvelope.ok, true, 'expected ok envelope on stdout');
-    assert.equal(firstEnvelope.schema_version, 1);
     assert.equal(firstEnvelope.data?.path, markdownPath);
 
     const firstRender = readFileSync(markdownPath, 'utf-8');

@@ -29,7 +29,7 @@ Input
   stdin              optional. Piped input used as prompt when --prompt is omitted.
 
 Output (stdout, JSON)
-  ok, schema_version: 1, data: { sessionId, mode }
+  ok, data: { sessionId, mode }
 
 Effects
   Kills the current orchestrator process; daemon blocks until all running agents submit, then

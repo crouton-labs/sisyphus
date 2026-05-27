@@ -38,7 +38,7 @@ export function exitForError(kind: ErrorKind): number {
 export function exitError(err: string | ProtocolError | undefined): never {
   const e = normalizeError(err);
   process.stdout.write(
-    JSON.stringify({ ok: false, schema_version: 1, error: e }) + '\n',
+    JSON.stringify({ ok: false, error: e }) + '\n',
   );
   process.exit(exitForError(e.kind));
 }

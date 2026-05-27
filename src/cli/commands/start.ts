@@ -63,8 +63,8 @@ Input
   --accept-cwd-mismatch     optional — bypass the tmux session home check when cwd intentionally differs
 
 Output (stdout, JSON)
-  { ok, schema_version: 1, data: { sessionId, tmuxSessionName? } }
-  on error: { ok: false, schema_version: 1, error: { code, message } }
+  { ok, data: { sessionId, tmuxSessionName? } }
+  on error: { ok: false, error: { code, message } }
 
 Effects
   Creates a new session record on the daemon.

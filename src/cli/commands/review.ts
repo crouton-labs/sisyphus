@@ -70,10 +70,10 @@ File resolution (first match wins)
   3. Most recent session with a requirements.json
 
 Output (stdout, JSON)
-  --export:    { ok, schema_version: 1, data: { path } }  — path is the absolute path of the written requirements.md
-  --schema:    { ok, schema_version: 1, data: <schema object> }
-  --annotated: { ok, schema_version: 1, data: { markdown } }  — markdown is the annotated guide body string
-  on error:    { ok: false, schema_version: 1, error: { code, message } }
+  --export:    { ok, data: { path } }  — path is the absolute path of the written requirements.md
+  --schema:    { ok, data: <schema object> }
+  --annotated: { ok, data: { markdown } }  — markdown is the annotated guide body string
+  on error:    { ok: false, error: { code, message } }
 
 Effects
   --export: Writes requirements.md alongside the source requirements.json.
@@ -264,7 +264,7 @@ const REQUIREMENTS_ANNOTATED = `# requirements.json — Annotated Writing Guide
     //            belongs in design.md (technical) and plan.md (steps).
 
     "version": 1,
-    //          ^ Always 1. Reserved for future schema versioning.
+    //          ^ Always 1.
 
     "lastModified": "2026-04-04T12:00:00Z",
     //               ^ ISO 8601 timestamp. Update on each save.

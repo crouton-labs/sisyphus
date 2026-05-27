@@ -215,7 +215,7 @@ Filing:
   unauthenticated, opens a prefilled GitHub "new issue" URL instead.
 
 Output (stdout, JSON envelope)
-  { ok, schema_version: 1, data: { url | issueUrl, filed } }
+  { ok, data: { url | issueUrl, filed } }
 
 Exit codes: 0 ok | 1 filing error | 2 usage`,
     )

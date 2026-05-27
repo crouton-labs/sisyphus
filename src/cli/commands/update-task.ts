@@ -16,8 +16,8 @@ Input
   <task>             required. New task/goal string for the session.
   --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { sessionId, task }
+Output (stdout, JSON)
+  ok, data: { sessionId, task }
 
 Effects
   Overwrites the session's stored task field in daemon state.

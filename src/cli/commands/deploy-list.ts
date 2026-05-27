@@ -16,7 +16,7 @@ Input
   None.
 
 Output (stdout, JSON)
-  ok, schema_version: 1, data: { providers: [{ name, status }, ...] }
+  ok, data: { providers: [{ name, status }, ...] }
   Sorted by name ascending. No pagination — bounded set.
 
 Effects

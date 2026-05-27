@@ -26,7 +26,7 @@ Input
   --session <id>     optional. Defaults to $SISYPHUS_SESSION_ID.
 
 Output (stdout, JSON)
-  ok, schema_version: 1, data: { agentId, sessionId, status, agentName, agentType, reportPath, report }
+  ok, data: { agentId, sessionId, status, agentName, agentType, reportPath, report }
   Warning written to stderr if the report file cannot be read.
 
 Effects

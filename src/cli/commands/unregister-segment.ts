@@ -15,8 +15,8 @@ export function registerSegmentUnregister(program: Command): void {
 Input
   --id <id>    required. Segment identifier to remove.
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { id }
+Output (stdout, JSON)
+  ok, data: { id }
 
 Effects
   Removes the named segment from the status bar.

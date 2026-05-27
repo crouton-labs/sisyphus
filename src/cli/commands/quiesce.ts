@@ -23,8 +23,8 @@ Input
   <session-id>       required. Session to pause.
   --force            optional. Interrupt running orchestrator/agents immediately.
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { sessionId, force, queued }
+Output (stdout, JSON)
+  ok, data: { sessionId, force, queued }
 
 Effects
   Signals the session to halt at its next quiesce point, leaving it paused in place.

@@ -17,7 +17,7 @@ Input
   [session-id]  optional. Defaults to $SISYPHUS_SESSION_ID.
 
 Output (stdout, JSON)
-  ok, schema_version: 1, data: { session }
+  ok, data: { session }
   session is null when no matching session is found.
 
 Effects

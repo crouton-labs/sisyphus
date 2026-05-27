@@ -123,7 +123,7 @@ Exit codes:
   60  transient (retry-safe: daemon down, timeout, lock contention)
 
 Errors:
-  {"ok": false, "schema_version": 1,
+  {"ok": false,
    "error": {"code": "<stable-enum>", "kind": "<usage|not_found|ambiguous|conflict|transient|permanent>",
              "message": "...", "received"?: ..., "expected"?: ..., "next"?: "...", "candidates"?: [...]}}
 `);

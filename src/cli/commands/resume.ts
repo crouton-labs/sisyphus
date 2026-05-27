@@ -21,7 +21,7 @@ Input:
   --stdin        Read instructions from stdin instead of --message.
 
 Output (stdout, JSON)
-  ok, schema_version: 1, data: { sessionId, tmuxSessionName? }
+  ok, data: { sessionId, tmuxSessionName? }
 
 Effects:
   Respawns the orchestrator process; session history is preserved.

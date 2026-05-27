@@ -19,8 +19,8 @@ Input
   <sessionId>    required. Session to reconfigure.
   --tier         required. Effort level: low | medium | high | xhigh.
 
-Output (stdout, JSON, schema_version: 1)
-  ok, schema_version: 1, data: { sessionId, effort }
+Output (stdout, JSON)
+  ok, data: { sessionId, effort }
 
 Effects
   Updates the session's effort tier in daemon state.

@@ -54,9 +54,9 @@ Input
   --cwd <path>    optional — working directory for the Claude session; defaults to $SISYPHUS_CWD then process cwd
 
 Output (stdout, JSON)
-  { ok, schema_version: 1, data: { tmuxSession, windowId } }
+  { ok, data: { tmuxSession, windowId } }
   tmuxSession is the tmux session name; windowId is the tmux window ID (e.g. @42).
-  on error: { ok: false, schema_version: 1, error: { code, message } }
+  on error: { ok: false, error: { code, message } }
 
 Effects
   Creates a new tmux window named "scratch" in the home tmux session.

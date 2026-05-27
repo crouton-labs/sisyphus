@@ -110,7 +110,7 @@ Input
   --head <n>             optional — emit only the first N turns
 
 Output (stdout, JSONL)
-  one JSON object per line; no {ok, schema_version} envelope (stream contract).
+  one JSON object per line; no {ok} envelope (stream contract).
   fields: { role: "user"|"assistant", timestamp: ISO-8601, content: message content }
   ordered oldest-first within the selected cycle.
 
@@ -192,7 +192,7 @@ Input
   --head <n>             optional — emit only the first N turns
 
 Output (stdout, JSONL)
-  one JSON object per line; no {ok, schema_version} envelope (stream contract).
+  one JSON object per line; no {ok} envelope (stream contract).
   fields: { role: "user"|"assistant", timestamp: ISO-8601, content: message content }
   ordered oldest-first.
 
