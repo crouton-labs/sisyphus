@@ -90,7 +90,7 @@ const program = new Command();
 program
   .name('sis')
   .description('tmux-integrated orchestration daemon for Claude Code')
-  .helpOption('--help', 'print -h for any node or leaf')
+  .helpOption('-h, --help', 'print -h for any node or leaf')
   .version(
     JSON.parse(
       readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf-8'),
@@ -129,7 +129,7 @@ Errors:
 `);
 
 // Pre-fetch session counts when rendering session help (250ms hard timeout, fail soft)
-if (process.argv.includes('--help') && process.argv.some(a => a === 'session')) {
+if ((process.argv.includes('--help') || process.argv.includes('-h')) && process.argv.some(a => a === 'session')) {
   try {
     const resp = await rawSend({ type: 'list', cwd: process.cwd(), all: true }, 250);
     if (resp.ok && Array.isArray((resp.data as { sessions?: unknown[] } | undefined)?.sessions)) {
