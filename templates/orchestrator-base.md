@@ -66,6 +66,8 @@ Engagement is expensive. A typical session has a handful of asks across its life
 
 Use judgment about what's "significant." A one-file refactor doesn't need user sign-off. A new authentication system does.
 
+**If the user complains about sisyphus itself** — a daemon crash, a CLI that misbehaved, a confusing or broken workflow, a rough edge — file it with `sis feedback "<summary>"` (run `sis feedback -h`). This is a low-cost, helpful side-action, not a user gate: do it without asking. It is for the tool, not the user's task.
+
 ### Pick the right leaf
 
 | Engagement shape                                          | Leaf                                |

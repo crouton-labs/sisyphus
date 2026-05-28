@@ -32,6 +32,7 @@ export const RUBRICS: Record<string, { short: string; useWhen: string }> = {
   'companion': { short: 'Companion-pane helper', useWhen: 'driving the companion Claude pane' },
   'deploy': { short: 'Provision cloud boxes (Terraform)', useWhen: 'standing up or tearing down infra' },
   'cloud': { short: 'Per-repo workflow on a deployed box', useWhen: 'syncing work to/from the box' },
+  'feedback': { short: 'Report a problem with sisyphus itself', useWhen: 'the user complains about the tool or workflow' },
 
   'session lifecycle': { short: 'Start/stop/advance a session', useWhen: 'changing whether a session runs' },
   'session inspect': { short: 'Read session state', useWhen: 'you need status/history/context without mutating' },

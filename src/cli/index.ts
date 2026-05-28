@@ -62,6 +62,7 @@ import { registerHomeInit } from './commands/home-init.js';
 import { registerQuiesce } from './commands/quiesce.js';
 import { registerDoctor } from './commands/doctor.js';
 import { registerBug } from './commands/bug.js';
+import { registerFeedback } from './commands/feedback.js';
 import { registerInit } from './commands/init.js';
 import { registerUninstall } from './commands/uninstall.js';
 import { registerConfigureUpload } from './commands/configure-upload.js';
@@ -300,6 +301,9 @@ registerDeployList(program.commands.find(c => c.name() === 'deploy')!);
 // cloud group (per-repo workflow on the deployed box)
 registerCloud(program);
 
+// feedback (root-level leaf): report problems with sisyphus itself
+registerFeedback(program);
+
 // diagnostic group (hidden)
 const diagnostic = program.command('diagnostic', { hidden: true });
 attachNotify(diagnostic);
@@ -310,7 +314,7 @@ registerHomeInit(diagnostic);
 // Show welcome on first run (before ~/.sisyphus exists)
 const args = process.argv.slice(2);
 const firstArg = args[0];
-const skipWelcome = ['session', 'start', 'dashboard', 'agent', 'orch', 'ask', 'ui', 'segment', 'admin', 'help', '--help', '--version'];
+const skipWelcome = ['session', 'start', 'dashboard', 'agent', 'orch', 'ask', 'ui', 'segment', 'admin', 'feedback', 'help', '--help', '--version'];
 if (!existsSync(globalDir()) && firstArg && !skipWelcome.includes(firstArg)) {
   mkdirSync(globalDir(), { recursive: true });
   console.log('');
