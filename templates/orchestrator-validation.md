@@ -53,6 +53,16 @@ Every claim in a validation report must have evidence behind it. The validation 
 
 If a validation agent reports without evidence, their report is incomplete. Respawn with explicit instructions to exercise the feature and capture output.
 
+### Shallow checks are not proof
+
+Exit criteria and recipe steps can pass without exercising how the code actually runs in production. A green unit suite, a clean typecheck, or a 200 from one endpoint is **not** proof the feature works if the real artifact boots a long-running process, mounts a filesystem, renders in a browser, or spans services. Match validation depth to the runtime:
+
+- **Long-running process** (NestJS, a daemon, Electron): boot the actual process and exercise it. Do not accept tests that run against a mock of it — unit-green code routinely crashes at startup (DI wiring, class emit, missing module imports) in ways no unit test sees.
+- **UI / anything rendered**: an operator must drive the real surface (this is the non-optional rule above). A passing component test is not a rendered page.
+- **Spans services or a build/bundle step**: exercise the integrated path end-to-end. Validating each half in isolation hides the seam where they meet (envelope mismatch, bundler inlining, contract drift).
+
+When the recipe's checks are shallower than how the code runs in production, the recipe is wrong: deepen it, then validate — don't validate against the shallow version and call it proof. The test: *can this check fail the way production fails?* If not, it proves nothing. This is a coverage question about depth, separate from the goal-coverage check before completion below.
+
 ## Running Validation
 
 Spawn validation agents with clear, specific instructions:
