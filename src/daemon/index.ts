@@ -39,6 +39,7 @@ import type { Session } from '../shared/types.js';
 import { checkAndApply, startPeriodicUpdateCheck, stopPeriodicUpdateCheck } from './updater.js';
 import { installPlugin } from './plugin-install.js';
 import { startLogRotator, stopLogRotator } from './log-rotate.js';
+import { backfillUploads } from './upload-backfill.js';
 
 function ensureDirs(): void {
   mkdirSync(globalDir(), { recursive: true });
@@ -349,6 +350,11 @@ async function startDaemon(): Promise<void> {
   // Heartbeat scanner runs on its own slow clock (every 15min) — orphan startup-scan
   // already completed above, so heartbeats won't fire for asks that should be orphaned instead.
   startHeartbeatScanner();
+
+  // Off the critical path: catch up any completed-but-not-uploaded sessions.
+  // Fire-and-forget — uploads run sequentially in the background and must never
+  // stall daemon startup or session processing. No-op unless upload is configured.
+  void backfillUploads();
 
   const shutdown = async () => {
     console.log('[sisyphus] Shutting down...');
