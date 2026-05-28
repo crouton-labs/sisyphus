@@ -1,2 +1,2 @@
 - `systemPrompt: replace` agents must re-specify tool discipline, scope limits, and destructive-action posture in the file body — `replace` strips all daemon defaults, so whatever is in the .md becomes the complete system prompt.
-- `systemPrompt` is only honored for parent agents via the daemon (`src/daemon/agent.ts:261`); in `review/`, `review-plan/`, `spec/`, `research-lead/`, `problem/`, the field is silently ignored — those bodies are consumed as Agent-tool subagent prompts regardless.
+- `systemPrompt` is only honored for parent agents via the daemon (`src/daemon/agent.ts:261`); in `plan/`, `problem/`, `research-lead/`, `review/`, `review-plan/`, `spec/`, the field is silently ignored — those bodies are consumed as Agent-tool subagent prompts regardless.
