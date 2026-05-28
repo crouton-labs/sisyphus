@@ -114,7 +114,7 @@ switch (subcommand) {
     console.log(`  plaintext: ${plaintext}`);
     console.log('');
     console.log('Share via:');
-    console.log(`  sis admin configure-upload "https://sisyphus-upload-proxy.rhyneer-silas.workers.dev/upload?token=${plaintext}"`);
+    console.log(`  sis admin report configure-upload "https://sisyphus-upload-proxy.rhyneer-silas.workers.dev/upload?token=${plaintext}"`);
     console.log('');
     break;
   }

@@ -330,13 +330,13 @@ Run `configure-upload` with that URL to write credentials to `~/.sisyphus/config
 
 ```bash
 # Safest — no argv leak:
-pbpaste | sis admin configure-upload --stdin
+pbpaste | sis admin report configure-upload --stdin
 
 # Interactive prompt:
-sis admin configure-upload
+sis admin report configure-upload
 
 # Direct argv (triggers a leak warning — token visible via `ps` and shell history):
-sis admin configure-upload "https://<worker-host>/upload?token=sisyphus_pat_..."
+sis admin report configure-upload "https://<worker-host>/upload?token=sisyphus_pat_..."
 ```
 
 **Config** — `configure-upload` always writes to `~/.sisyphus/config.json`. The `upload` block is only honored from the global config; a project-local `.sisyphus/config.json` with an `upload` block is ignored with a warning (security hardening — prevents project files from redirecting your uploads).
