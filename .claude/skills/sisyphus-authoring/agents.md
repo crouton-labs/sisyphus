@@ -31,7 +31,7 @@ Every field is optional except `description`. Each field maps directly to a runt
 ---
 name: post-run-audit
 description: Audit a finished session for missed cleanup, drift, untracked TODOs.
-model: claude-opus-4-7
+model: claude-opus-4-8
 fallbackModel: claude-sonnet-4-6
 color: yellow
 effort: high
@@ -49,7 +49,7 @@ plugins:
 |---|---|
 | `name` | Display name in tmux pane title and orchestrator listings. Defaults to filename. |
 | `description` | Surfaces in the orchestrator's `{{AGENT_TYPES}}` injection. **Front-load the trigger keywords.** This is the orchestrator's only signal for when to spawn this type. |
-| `model` | Maps to Claude `--model`. Use `opus` (alias for `claude-opus-4-7[1m]`) for plan/review/debug-style work that benefits from 1M context. |
+| `model` | Maps to Claude `--model`. Use `opus` (alias for `claude-opus-4-8[1m]`) for plan/review/debug-style work that benefits from 1M context. |
 | `fallbackModel` | If the primary CLI/model isn't available, the daemon transparently falls back. Set this for OS portability (codex → claude). |
 | `color` | tmux pane border color — fast visual signal in multi-pane workflows. |
 | `effort` | Doubles as Claude `--effort` flag *and* the prompt-tier override for `<!--EFFORT:high-->` blocks in the body. Choose one of `low`, `medium`, `high`, `xhigh`, `max`. |
@@ -156,7 +156,7 @@ The daemon passes this via `--settings`. Use for spinner customization, output s
 ---
 name: post-run-audit
 description: Audit a finished session for missed cleanup and untracked TODOs. Use after validation when investigating "did anything fall through the cracks?"
-model: claude-opus-4-7
+model: claude-opus-4-8
 color: yellow
 effort: high
 interactive: false

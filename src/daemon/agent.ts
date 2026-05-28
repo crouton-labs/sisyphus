@@ -245,11 +245,11 @@ function setupAgentPane(opts: SetupAgentPaneOpts): { paneId: string; fullCmd: st
     mainCmd = `codex -m ${shellQuote(model)} --dangerously-bypass-approvals-and-sandbox "$(cat '${codexPromptPath}')"`;
   } else {
     const config = loadConfig(cwd);
-    const effort = agentConfig?.frontmatter.effort ?? config.agentEffort ?? 'medium';
+    const effort = agentConfig?.frontmatter.effort ?? config.agentEffort ?? 'high';
     const rawModel = agentConfig?.frontmatter.model;
     // Map the `opus` alias to the 1M-context variant so plan/review/debug agents
     // don't hit auto-compact at ~160K. Other aliases pass through unchanged.
-    const model = rawModel === 'opus' ? 'claude-opus-4-7[1m]' : rawModel;
+    const model = rawModel === 'opus' ? 'claude-opus-4-8[1m]' : rawModel;
     const modelFlag = model ? ` --model ${shellQuote(model)}` : '';
     const permMode = agentConfig?.frontmatter.permissionMode;
     const permFlag = permMode ? ` --permission-mode ${shellQuote(permMode)}` : ' --dangerously-skip-permissions';

@@ -64,11 +64,11 @@ export interface Config {
 }
 
 const DEFAULT_CONFIG: Config = {
-  model: 'claude-opus-4-7[1m]',
+  model: 'claude-opus-4-8[1m]',
   pollIntervalMs: 5000,
   statusBarRenderTicks: 4,
   orchestratorEffort: 'xhigh',
-  agentEffort: 'medium',
+  agentEffort: 'high',
   notifications: {
     enabled: true,
     sound: '/System/Library/Sounds/Hero.aiff',
