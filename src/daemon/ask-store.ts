@@ -1,7 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
+import { basename } from 'node:path';
 import {
-  askDecisionsPath, askDir, askMetaPath, askOutputPath, askProgressPath, askReviewPath, askVisualsDir,
+  askDecisionsPath, askDir, askEntryDir, askMetaPath, askOutputPath, askProgressPath, askReviewPath, askVisualsDir,
 } from '../shared/paths.js';
+import type { InboxItem } from '@crouton-kit/humanloop';
 import type { AskMeta, AskStatus, Deck, FeedbackResult, InteractionKind, InteractionResponse } from '../shared/types.js';
 import { loadConfig } from '../shared/config.js';
 import { emitHistoryEvent } from './history.js';
@@ -217,6 +219,33 @@ export function listAsks(cwd: string, sessionId: string): string[] {
   return readdirSync(dir, { withFileTypes: true })
     .filter(e => e.isDirectory())
     .map(e => e.name);
+}
+
+/**
+ * Build dashboard inbox items for the session's pending review asks. `scanInbox`
+ * (humanloop) keys on `deck.json` and so never surfaces reviews, which write
+ * `review.json` instead — without this, `sis ask review submit` blocks forever
+ * with nothing shown in the dashboard. Mirror scanInbox's resolved/orphan
+ * filtering so a review drops off the inbox once it's submitted.
+ */
+export function listReviewInboxItems(cwd: string, sessionId: string): InboxItem[] {
+  const items: InboxItem[] = [];
+  for (const askId of listAsks(cwd, sessionId)) {
+    const meta = readMeta(cwd, sessionId, askId);
+    if (!meta || meta.kind !== 'review') continue;
+    if (meta.orphaned) continue;
+    if (meta.status !== 'pending' && meta.status !== 'in-progress') continue;
+    if (existsSync(askOutputPath(cwd, sessionId, askId))) continue; // resolved
+    const review = readReview(cwd, sessionId, askId);
+    items.push({
+      dir: askEntryDir(cwd, sessionId, askId),
+      id: askId,
+      title: meta.title ?? (review ? `Review ${basename(review.file)}` : 'Review'),
+      kind: 'review',
+      blockedSince: meta.askedAt,
+    });
+  }
+  return items;
 }
 
 export interface PendingAskRef {

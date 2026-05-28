@@ -14,7 +14,7 @@ import { emitHistoryEvent } from './history.js';
 import { getActiveTimers } from './pane-monitor.js';
 import type { Compositor } from './segments/index.js';
 import { generateVisualForQuestion } from './ask-visual.js';
-import { listAsks, readMeta, readDecisions, autoResolveAsk } from './ask-store.js';
+import { listAsks, readMeta, readDecisions, autoResolveAsk, listReviewInboxItems } from './ask-store.js';
 import { resolveOrchestratorOrphanAsks } from './orphan-asks.js';
 import { recomputeDots } from './status-dots.js';
 import * as orchestrator from './orchestrator.js';
@@ -818,9 +818,11 @@ async function handleRequest(req: Request): Promise<Response> {
 
       case 'inbox-list': {
         const askDirs: string[] = [];
+        const reviewItems: InboxItem[] = [];
         for (const [sessionId, tracking] of sessionTrackingMap) {
           if (!tracking.cwd) continue;
           askDirs.push(askDir(tracking.cwd, sessionId));
+          reviewItems.push(...listReviewInboxItems(tracking.cwd, sessionId));
         }
         let items: InboxItem[];
         try {
@@ -828,6 +830,13 @@ async function handleRequest(req: Request): Promise<Response> {
         } catch (err) {
           console.warn('[sisyphus] inbox-list: scanInbox failed:', err);
           items = [];
+        }
+        // scanInbox keys on deck.json and skips reviews (review.json). Merge the
+        // review asks in and re-sort oldest-first to match scanInbox ordering.
+        if (reviewItems.length > 0) {
+          items = items.concat(reviewItems).sort((a, b) =>
+            a.blockedSince < b.blockedSince ? -1 : a.blockedSince > b.blockedSince ? 1 : 0,
+          );
         }
         // Attach sessionName from sessionTrackingMap by deriving sessionId from item.dir
         // dir: <cwd>/.sisyphus/sessions/<sessionId>/context/ask/<askId>

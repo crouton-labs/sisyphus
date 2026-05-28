@@ -15,7 +15,9 @@ import {
   writeReview,
   readReview,
   writeReviewOutput,
+  writeDecisions,
   readMeta,
+  listReviewInboxItems,
 } from '../daemon/ask-store.js';
 import {
   askReviewPath,
@@ -152,6 +154,65 @@ describe('review ask lifecycle', () => {
     assert.equal(parsed.feedback.comments[0]!.id, 'c1');
     assert.equal(parsed.feedback.comments[0]!.line, 3);
     assert.equal(parsed.feedback.comments[0]!.comment, 'fix this');
+  });
+
+  it('listReviewInboxItems surfaces pending reviews and drops resolved ones', () => {
+    const sessionId = randomUUID();
+    createSession(sessionId, 'review task', testDir);
+    const askId = ulid();
+
+    createAsk(testDir, sessionId, {
+      askId,
+      askedBy: 'agent-001',
+      blocking: true,
+      cwd: testDir,
+      kind: 'review',
+      title: 'Review plan.md',
+    });
+    writeReview(testDir, sessionId, askId, { file: '/tmp/plan.md' });
+
+    // Pending review must appear as an inbox item with kind:'review'.
+    let items = listReviewInboxItems(testDir, sessionId);
+    assert.equal(items.length, 1, 'pending review must surface in inbox');
+    assert.equal(items[0]!.kind, 'review');
+    assert.equal(items[0]!.id, askId);
+    assert.equal(items[0]!.title, 'Review plan.md');
+    assert.ok(items[0]!.dir.endsWith(askId), 'dir must point at the per-ask directory');
+    assert.ok(items[0]!.blockedSince, 'blockedSince must be set from askedAt');
+
+    // Once submitted (response.json present), it drops off the inbox.
+    writeReviewOutput(testDir, sessionId, askId, {
+      file: '/tmp/plan.md',
+      submitted: true,
+      approved: true,
+      comments: [],
+      submittedAt: '2026-01-01T00:01:00.000Z',
+      savedAt: '2026-01-01T00:01:00.000Z',
+    });
+    items = listReviewInboxItems(testDir, sessionId);
+    assert.equal(items.length, 0, 'resolved review must not surface');
+  });
+
+  it('listReviewInboxItems ignores non-review (deck) asks', () => {
+    const sessionId = randomUUID();
+    createSession(sessionId, 'deck task', testDir);
+    const askId = ulid();
+
+    createAsk(testDir, sessionId, {
+      askId,
+      askedBy: 'agent-001',
+      blocking: true,
+      cwd: testDir,
+      kind: 'decision',
+      title: 'Pick a path',
+    });
+    writeDecisions(testDir, sessionId, askId, {
+      interactions: [{ id: 'q1', title: 'Pick a path', kind: 'decision', options: [
+        { id: 'a', label: 'A' }, { id: 'b', label: 'B' },
+      ] }],
+    });
+
+    assert.equal(listReviewInboxItems(testDir, sessionId).length, 0, 'decks are not review items');
   });
 
   it('ACTIONABLE_KINDS includes review (verified via notify suppression in test env)', () => {

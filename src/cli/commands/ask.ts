@@ -178,7 +178,7 @@ Exit codes: 0 ok | 2 usage (missing session)
 `;
 
 const REVIEW_BRANCH_HELP = `
-Line-by-line markdown annotation workflow. The agent submits the file; the user opens it in their editor from the dashboard inbox, annotates per-line with <Space>c, and submits with <Space>s or the dashboard "Submit" action. Multiple open/close cycles are supported — the draft persists until explicitly submitted.
+Line-by-line markdown annotation workflow. The agent submits the file; in tmux an editor pane opens next to the agent (also reachable from the dashboard inbox). The user annotates per-line with <Space>c and submits with <Space>s. Multiple open/close cycles are supported — the draft persists until explicitly submitted.
 
 Use when surfacing a document the user should annotate per-line rather than pick options on. For a global yes/no, use \`sis ask approve\`. For named alternatives, use \`sis ask deck submit\`.
 
@@ -201,7 +201,7 @@ Output (stdout, bare JSON — NOT the standard {ok, data} envelope)
   on error: stderr diagnostic + non-zero exit
 
 Effects
-  Creates an ask in the session store, blocks until the user submits the review, then marks it answered.
+  Creates an ask in the session store. In tmux, splits an editor pane next to the caller running the annotator (\`ask review open\`) so the user lands in the editor; also surfaces in the dashboard inbox. Blocks until the user submits the review, then marks it answered. Set SISYPHUS_DISABLE_ASK_PANE=1 to suppress the pane (dashboard-only).
 
 Exit codes: 0 ok | 2 usage (file not found, not .md, missing session)
 `;
@@ -580,7 +580,7 @@ function waitForOutput(cwd: string, sessionId: string, askId: string, initialPpi
  * ask itself for a UX nicety).
  */
 function maybeSpawnAskPane(cwd: string, sessionId: string, askId: string, kind?: InteractionKind): void {
-  if (kind === 'review') return; // reviews surface in dashboard only
+  if (kind === 'review') return; // reviews spawn their own editor pane via maybeSpawnReviewPane
   const callerPane = process.env.TMUX_PANE;
   if (!callerPane) return;
   if (process.env.SISYPHUS_DISABLE_ASK_PANE === '1') return;
@@ -592,6 +592,30 @@ function maybeSpawnAskPane(cwd: string, sessionId: string, askId: string, kind?:
   // -h: horizontal split (new pane sits to the right)
   // -t: target the caller's pane so the split is adjacent
   execSafe(`tmux split-window -d -h -t ${shellQuote(callerPane)} -c ${shellQuote(cwd)} ${shellQuote(cmd)}`);
+}
+
+/**
+ * Spawn a tmux pane next to the caller running the review annotator directly
+ * (`ask review open`), so the user lands in the editor in the session window
+ * without needing the dashboard. The dashboard inbox remains a valid second
+ * surface — both run the same `launchReview` against the same draft/output paths.
+ *
+ * Unlike decks, the new pane IS focused (no -d): a review is an editing task,
+ * so we put the user in the editor. No-op outside tmux, on opt-out, or if the
+ * split fails (the dashboard is still a valid answering surface, so a UX nicety
+ * never breaks the ask itself).
+ */
+function maybeSpawnReviewPane(cwd: string, sessionId: string, askId: string): void {
+  const callerPane = process.env.TMUX_PANE;
+  if (!callerPane) return;
+  if (process.env.SISYPHUS_DISABLE_ASK_PANE === '1') return;
+
+  const cliPath = join(import.meta.dirname, 'cli.js');
+  const cmd = `node ${shellQuote(cliPath)} ask review open ${shellQuote(askId)} --session ${shellQuote(sessionId)}`;
+
+  // -h: horizontal split (editor sits to the right); -t targets the caller's
+  // pane so the split is adjacent. Focus moves to the editor (no -d).
+  execSafe(`tmux split-window -h -t ${shellQuote(callerPane)} -c ${shellQuote(cwd)} ${shellQuote(cmd)}`);
 }
 
 /**
@@ -715,6 +739,8 @@ async function submitReview(
   writeReview(cwd, sessionId, askId, { file: absFile });
 
   if (!blocking) return { askId };
+
+  maybeSpawnReviewPane(cwd, sessionId, askId);
 
   const output = await waitForOutput(cwd, sessionId, askId, initialPpid);
   await markAnswered(cwd, sessionId, askId);

@@ -25,7 +25,12 @@ function mountInlineDeck(
 ): MountedResolutionHandle | null {
   return mountResolutionPanel(
     {
-      aggregateInbox: state.aggregateInbox,
+      // Reviews are surfaced by the review-action panel, not the deck resolver —
+      // they have no deck.json, so buildDeck() returns null and the resolver
+      // would tear the whole inbox surface down the moment it advanced onto one.
+      // Excluding them keeps the resolver to deck-backed asks; once those drain
+      // it tears down and renderInboxDeckRows re-dispatches the now-front review.
+      aggregateInbox: state.aggregateInbox.filter((i) => i.kind !== 'review'),
       startIndex: 0,
       cols,
       rows,
