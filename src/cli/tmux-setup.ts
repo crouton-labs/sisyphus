@@ -8,6 +8,8 @@ import { KEYMAP, formatHelpForKeymap, type MenuDef, type MenuItem, type Action }
 import { ensureSisyphusInitLua } from '../shared/sisyphus-init-lua.js';
 
 export const DEFAULT_CYCLE_KEY = 'M-s';
+// Reverse cycle (Alt+Shift+S) — same script, "prev" direction arg.
+export const DEFAULT_CYCLE_BACK_KEY = 'M-S';
 export const DEFAULT_PREFIX_KEY = 'C-s';
 export const KEY_TABLE = 'sisyphus';
 
@@ -258,6 +260,8 @@ const OPEN_BIN = '$HOME/.sisyphus/bin/sisyphus-open';
 const CYCLE_SCRIPT = `#!/bin/bash
 # Target by $N session ID (column 5 in TSV) — tmux -t <name> can substring-match
 # the wrong session under sparse env.
+# Arg $1: "prev" cycles backward (M-S); anything else cycles forward (M-s).
+dir="\${1:-next}"
 MANIFEST="$HOME/.sisyphus/sessions-manifest.tsv"
 if [ ! -f "$MANIFEST" ]; then
   tmux display-message "sisyphus: no manifest — daemon running?"
@@ -284,7 +288,11 @@ if (( \${#session_ids[@]} <= 1 )); then
 fi
 for (( i=0; i<\${#session_ids[@]}; i++ )); do
   if [ "\${session_ids[$i]}" = "$current_id" ]; then
-    next=$(( (i + 1) % \${#session_ids[@]} ))
+    if [ "$dir" = "prev" ]; then
+      next=$(( (i - 1 + \${#session_ids[@]}) % \${#session_ids[@]} ))
+    else
+      next=$(( (i + 1) % \${#session_ids[@]} ))
+    fi
     tmux switch-client -t "\${session_ids[$next]}"
     exit 0
   fi
@@ -1550,7 +1558,7 @@ export async function setupTmuxKeybind(
   // them silently (tmux bind-key replaces in place); otherwise refuse so the user can
   // pick alternate keys or explicitly opt in.
   if (!opts.force) {
-    for (const [label, key] of [['cycle', cycleKey], ['prefix', prefixKey]] as const) {
+    for (const [label, key] of [['cycle', cycleKey], ['cycle-back', DEFAULT_CYCLE_BACK_KEY], ['prefix', prefixKey]] as const) {
       const existing = getExistingBinding(key);
       if (existing !== null && !isSisyphusBinding(existing)) {
         return {
@@ -1596,8 +1604,10 @@ export async function setupTmuxKeybind(
   const bindings = [
     // C-s → display-menu top-level (descriptor-driven)
     generateTopLevelBinding(prefixKey, KEYMAP.topLevel, scriptsDir),
-    // M-s → cycle (unchanged)
+    // M-s → cycle forward (unchanged)
     `bind-key -T root ${cycleKey} run-shell ${cycleScriptPath()}`,
+    // M-S → cycle backward (same script, "prev" direction)
+    `bind-key -T root ${DEFAULT_CYCLE_BACK_KEY} run-shell "${cycleScriptPath()} prev"`,
     // smart-kill is reachable via the sisyphus prefix menu (C-s x) — see KEYMAP.topLevel.
     // We deliberately don't override `prefix x` so users keep their default tmux kill-pane.
   ];
@@ -1687,6 +1697,7 @@ export function removeTmuxKeybind(): void {
   // Unbind live
   try {
     execSync(`tmux unbind-key -T root ${DEFAULT_CYCLE_KEY}`, { stdio: 'pipe' });
+    execSync(`tmux unbind-key -T root ${DEFAULT_CYCLE_BACK_KEY}`, { stdio: 'pipe' });
     execSync(`tmux unbind-key -T root ${DEFAULT_PREFIX_KEY}`, { stdio: 'pipe' });
     const output = execSync(`tmux list-keys -T ${KEY_TABLE}`, { stdio: ['pipe', 'pipe', 'pipe'] }).toString();
     for (const line of output.split('\n')) {
