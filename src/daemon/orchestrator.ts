@@ -411,11 +411,14 @@ export async function spawnOrchestrator(sessionId: string, cwd: string, windowId
   const formattedState = formatStateForOrchestrator(session, mode);
 
   // Inject available agent types into system prompt.
-  // Restricted to bundled `sisyphus:*` agents only — project/user/plugin-discovered
-  // agents are intentionally hidden from the orchestrator to keep the curated set stable.
+  // Restricted to sisyphus-extension agents: bundled `sisyphus:*` plus project-level
+  // agents under `.sisyphus/agent-plugin/agents/`. Project sisyphus agents are
+  // autoloaded alongside the bundled set so the orchestrator can delegate to them.
+  // `.claude/agents` (project/user), user-global sisyphus, and external plugin agents
+  // remain hidden to keep the curated set stable.
   const agentPluginPath = resolve(import.meta.dirname, '../templates/agent-plugin');
   const agentTypes = discoverAgentTypes(agentPluginPath, session.cwd)
-    .filter(t => t.source === 'bundled');
+    .filter(t => t.source === 'bundled' || t.source === 'project-sis');
 
 
   const agentTypeLines = agentTypes.length > 0
