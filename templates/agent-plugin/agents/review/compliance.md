@@ -43,6 +43,10 @@ If a requirements or design document path is provided or referenced in the instr
 - Style issues covered by linters or formatters
 - Reasonable deviations where the code is explicitly better than the documented pattern
 
+## Isolated vs. systemic
+
+Before writing up a finding, decide whether it's a one-off or one instance of a larger issue — a convention violated once, or the same rule broken across many of the changed files. Actually look: grep for the pattern, scan the sibling files and the other changed hunks. If it's systemic, report it as such — name the rule and list every site that violates it under one finding, instead of reporting the first hit as if it were the whole problem. A fix aimed at one instance leaves its siblings; a fix aimed at the root closes the class. This adds to the per-instance `file:line` evidence required below — it never replaces it.
+
 ## Output
 
 If you have no concerns, say so explicitly: "No compliance violations — the change respects documented conventions." That is a complete and acceptable report.

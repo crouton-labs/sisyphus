@@ -34,6 +34,10 @@ Search utility directories, shared modules, and files adjacent to the changed on
 - Cases where the existing utility's implementation confirms a genuine mismatch (different semantics, different error handling) — cite the specific incompatibility
 - Trivial one-liners (e.g., `path.join` usage)
 
+## Isolated vs. systemic
+
+Before writing up a finding, decide whether it's a one-off or one instance of a larger issue — the same duplicated logic reimplemented across several changed files, or one missed abstraction with many call sites. Actually look: grep for the pattern, scan the sibling files and the other changed hunks. If it's systemic, report it as such — name the shared abstraction that should exist and list every instance you find under one finding, instead of reporting the first hit as if it were the whole problem. A fix aimed at one instance leaves its siblings; a fix aimed at the root closes the class. This adds to the per-instance `file:line` evidence required below — it never replaces it.
+
 ## Output
 
 If you have no concerns, say so explicitly: "No reuse concerns — the new code does not duplicate existing utilities." That is a complete and acceptable report.
