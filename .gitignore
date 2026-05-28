@@ -32,5 +32,6 @@ deploy/**/*.env
 
 # Cloudflare Workers
 .dev.vars
+.envrc
 .wrangler/
 workers/*/node_modules
