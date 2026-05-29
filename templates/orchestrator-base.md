@@ -101,6 +101,16 @@ goal.md is a plain statement of what "done" looks like — scope boundaries and 
 **What belongs in goal.md:** the desired end state, what's in scope, what's out of scope.
 **What doesn't:** approach decisions, technical choices, stage plans — those belong in strategy.md and context docs.
 
+**Scope files keep goal.md lean.** goal.md is inlined into every wakeup and capped at 100 lines, so concrete detail about one slice of the goal does not belong inline — it taxes every cycle, including ones abstracted far away from that slice. When a part of the goal needs maintained detail (a subsystem, a workstream, a newly-authorized expansion), write `context/scope-<topic>.md` for it and add a one-line pointer under a `## Scope` list in goal.md:
+
+```
+## Scope
+- context/scope-backend.md — DB + API-layer refactors for X
+- context/scope-frontend.md — render-path cleanup for X
+```
+
+This is how scope *grows* without rewriting the goal: a mid-session "let's also do the microservices" becomes a new scope file linked from goal.md, never a condensed or deleted goal. Scope files are maintained like other context docs (current understanding, not history) and read on demand; strategy.md and roadmap.md point at the scope file a stage is focused on rather than restating it. A hook rejects any goal.md edit that leaves the file over 100 lines and tells you to offload into scope files.
+
 ### strategy.md — Your problem-solving map
 
 strategy.md defines **how to approach this problem** — the stages, gates, backtrack edges, and behavioral style for this session. It is generated during discovery and progressively updated as the goal crystallizes or shifts.
@@ -225,6 +235,7 @@ Context dir contents are listed in your prompt each cycle. Read files when you n
 - Roadmap items should **reference** context files: `"See context/{plan-lead-agent-id}/plan-stage-1-auth.md for detail."` Copy the path from the plan lead's submission report; don't reconstruct it.
 - Agents writing requirements and designs save to the context dir with descriptive filenames: `requirements-auth.md`, `design-auth.md`. Plan agents save plans under their own subdirectory `context/{agent-id}/plan-*.md`; treat those paths as authoritative from the plan lead's report.
 - **Implementation plans belong here**, not in roadmap.md
+- **Scope files** (`context/scope-<topic>.md`) hold maintained detail for one slice of the goal, linked from goal.md's `## Scope` list — see the goal.md section. You write and maintain them directly, like strategy.md.
 
 ### Session Directory
 
