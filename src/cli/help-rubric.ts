@@ -183,3 +183,28 @@ Concepts
   ask           a blocking question surfaced for a human to answer
   mode          the session's current phase, driving orchestrator behavior
 `;
+
+/**
+ * Root-only help footer: the full exit-code enum + JSON error envelope. This is
+ * reference material for CLI scripters that belongs on the human-facing `sis -h`,
+ * but is noise inside an LLM prompt. `injectHelp()` strips it from the injected
+ * root overview; `index.ts` prints it via `addHelpText('after', ...)`. Shared so
+ * the strip stays in sync with what's actually printed.
+ */
+export const ROOT_AFTER_HELP: string = `
+I/O contract: flags and positional args on input, JSON on stdout (JSONL for streams).
+
+Exit codes:
+  0   success
+  1   permanent error (fallback)
+  2   usage error (bad args/shape)
+  3   not found
+  4   ambiguous (multiple matches — see error.candidates)
+  5   conflict (already-exists, wrong-state)
+  60  transient (retry-safe: daemon down, timeout, lock contention)
+
+Errors:
+  {"ok": false,
+   "error": {"code": "<stable-enum>", "kind": "<usage|not_found|ambiguous|conflict|transient|permanent>",
+             "message": "...", "received"?: ..., "expected"?: ..., "next"?: "...", "candidates"?: [...]}}
+`;

@@ -81,7 +81,7 @@ import { attachNotify } from './commands/notify.js';
 import { attachTmuxSessions } from './commands/tmux-sessions.js';
 import { registerCleanZombies } from './commands/clean-zombies.js';
 import { globalDir } from '../shared/paths.js';
-import { subcommandRubric, CONCEPTS_BLOCK } from './help-rubric.js';
+import { subcommandRubric, CONCEPTS_BLOCK, ROOT_AFTER_HELP } from './help-rubric.js';
 import { rawSend } from './client.js';
 
 let sessionCounts: { active: number; paused: number; completed: number } | null = null;
@@ -111,23 +111,8 @@ program.addHelpText('before', CONCEPTS_BLOCK);
 // envelope is reference material that belongs on `sis -h`. Subcommands carry
 // their own concise per-command exit-code line in their own addHelpText, so
 // propagating this everywhere just duplicated ~18 lines onto every -h.
-program.addHelpText('after', `
-I/O contract: flags and positional args on input, JSON on stdout (JSONL for streams).
-
-Exit codes:
-  0   success
-  1   permanent error (fallback)
-  2   usage error (bad args/shape)
-  3   not found
-  4   ambiguous (multiple matches — see error.candidates)
-  5   conflict (already-exists, wrong-state)
-  60  transient (retry-safe: daemon down, timeout, lock contention)
-
-Errors:
-  {"ok": false,
-   "error": {"code": "<stable-enum>", "kind": "<usage|not_found|ambiguous|conflict|transient|permanent>",
-             "message": "...", "received"?: ..., "expected"?: ..., "next"?: "...", "candidates"?: [...]}}
-`);
+// Shared with injectHelp() (which strips it from the injected root overview).
+program.addHelpText('after', ROOT_AFTER_HELP);
 
 // Pre-fetch session counts when rendering session help (250ms hard timeout, fail soft)
 if ((process.argv.includes('--help') || process.argv.includes('-h')) && process.argv.some(a => a === 'session')) {
