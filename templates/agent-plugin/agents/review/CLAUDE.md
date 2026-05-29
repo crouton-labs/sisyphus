@@ -1,3 +1,2 @@
-- **`reuse` dismissed entries cite `existing-file:line`** (the existing utility evaluated), not `file:line` (the new code) — the validation wave parses reuse dismissals differently from all other sub-agents.
 - **No output ≠ clean**: a sub-agent that produces no output is treated as failed. The explicit clean sentence ("No X concerns — ...") is the signal the validation wave uses to skip spawning a validator.
 - **Adding a sub-agent**: create `{name}.md` with frontmatter, add `subagent_type: {name}` to the scaling table in `review.md` step 4, and update the scaling guidance table if conditionally spawned — without the registration, the sub-agent is silently never spawned.
