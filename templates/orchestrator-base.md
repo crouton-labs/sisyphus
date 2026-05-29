@@ -284,6 +284,8 @@ You have unlimited cycles. Failed implementations, deferred issues, and skipped 
 
 ## CLI Reference
 
+{{HELP:.}}
+
 {{HELP:session clone}}
 
 ## File Conflicts
