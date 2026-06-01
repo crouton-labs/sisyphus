@@ -77,7 +77,7 @@ Run this pass on **every startup**, **before** entering resume logic.
 
 ### 1. Explore
 
-Use Bash + Glob + Grep + Read to explore the codebase relevant to the user's stated topic. Identify files, modules, and existing patterns that will be affected.
+Use Bash + Glob + Grep + Read + the Agent tool to explore the codebase relevant to the user's stated topic. Identify files, modules, and existing patterns that will be affected.
 
 ### 2. Gauge Clarity
 
@@ -227,7 +227,7 @@ Dispatch a single `requirements-writer` subagent for the entire design (see "Sub
 
 Validate the chunk (parseable JSON + `groups` array where each group has `id` and `requirements`). If invalid, increment N and re-dispatch; if it fails twice, bail.
 
-**Snapshot prior approvals before merging.** If `context/requirements.json` already exists (this is a re-dispatch — §5.1 bounce-return or §5.2 writer-redispatch), read its current `groups[].requirements[]` and `groups[].safeAssumptions[]` and build an in-memory **approval map**: for every item where `status === 'approved'` AND `userNotes` is empty/absent, record `contentKey(item) → true`. The content key is the SHA-256 of the canonical-JSON `{title, ears}` after normalizing every string with `trim()` + collapse runs of whitespace to a single space. Items with `status: 'draft'`/`'rejected'` or non-empty `userNotes` are NOT added — the re-dispatch was triggered by their unresolved state, and the writer is meant to revisit them.
+**Snapshot prior approvals before merging.** If `context/requirements.json` already exists (this is a re-dispatch — §5.1 bounce-return or §5.2 fresh-writer escalation; the §5.2 lead-patch path never reaches here), read its current `groups[].requirements[]` and `groups[].safeAssumptions[]` and build an in-memory **approval map**: for every item where `status === 'approved'` AND `userNotes` is empty/absent, record `contentKey(item) → true`. The content key is the SHA-256 of the canonical-JSON `{title, ears}` after normalizing every string with `trim()` + collapse runs of whitespace to a single space. Items with `status: 'draft'`/`'rejected'` or non-empty `userNotes` are NOT added — the re-dispatch was triggered by their unresolved state, and the writer is meant to revisit them.
 
 **Merge.** Replace `groups` entirely with the new chunk; preserve `meta`. Set `meta.stage = 'stage-2-in-progress'`. Then walk the new `groups[].requirements[]` and `groups[].safeAssumptions[]`: for each item, compute its content key; if the approval map contains it, set `status = 'approved'` and clear `userNotes`. Otherwise leave whatever the writer emitted untouched. Delete the chunk file.
 
@@ -283,22 +283,33 @@ With `meta.stage === 'stage-2-verdict-pending'`:
 
 1. All requirements (incl. safeAssumptions) `status === 'approved'` → atomic-write `meta.stage = 'stage-2-done'`; proceed to Stage 3.
 2. Any `status === 'rejected'` → §5.1 bounce-to-design.
-3. Else (some `draft` with non-empty `userNotes`, no `rejected`) → §5.2 writer re-dispatch.
+3. Else (some `draft` with non-empty `userNotes`, no `rejected`) → §5.2 comment resolution.
 
 ### §5.1 Bounce-to-design
 
 Increment `meta.bounceIterations` (init 0 if absent; **never decrements**). If new value > 3, bail. Quote rejected items + `userNotes` to user. Dispatch engineer in revision mode (Stage 1 revision contract) with rejected items as feedback. After engineer returns, run `crtr human show` to display the revised design; re-sign-off. Re-render to text via `hl doc render`. Atomic-write `meta.stage = 'stage-2-in-progress'`. Return to Step 2. REQ ids may shift — each pass is independent. User comments flow to the engineer; the writer re-extracts from the revised design.
 
-### §5.2 Writer re-dispatch
+### §5.2 Comment resolution
 
-Increment `meta.writerRedispatchIterations` (init 0 if absent; **never decrements**). If new value > 3, bail: `"Stage 2 writer-redispatch cap reached after 3 passes. Latest comments preserved in requirements.json. Re-spawn spec fresh or escalate."` Atomic-write `meta.stage = 'writer-redispatch-pending'` BEFORE re-dispatching. Tell user: `"Draft comments noted but the writer re-extracts from design — re-flag any items it missed on the next pass."` After writer chunk merge (which resets `meta.stage = 'stage-2-in-progress'`), return to Step 3.
+The design is unchanged here — design-level objections route through bounce-to-design (§5.1, where the user picked "Bounce"). What remains is `draft` items carrying `userNotes`. **Resolve them in place by default; escalate to a fresh writer only when the comments demand broad re-extraction.** Patching in place is what keeps already-approved items from being reworded and re-asked: the writer regenerates the whole document and its wording drifts, so re-dispatching it for a localized tweak forces the human to re-approve everything.
+
+**Triage the commented items.** Classify every `draft`-with-`userNotes` item:
+
+- **Localized** — satisfiable by editing that requirement's own fields: reword its EARS clause, fix/add/remove a criterion, tighten or split its scope, correct a detail, clarify wording.
+- **Broad** — implies behavior not captured anywhere (a coverage gap / a missing requirement), a regrouping or restructure across the document, or otherwise can't be met by editing the named items alone. (If a comment reveals the *design* is wrong rather than the requirement text, that is a bounce — tell the user and route to §5.1.)
+
+**All comments localized → lead patch (no writer).** Edit each commented requirement in place to satisfy its `userNotes`. Hold the same bar as the writer (`agents/spec/requirements-writer.md`): keep the EARS shape valid (exactly one of `when`/`while`/`if`/`where` plus `shall`) and behavioral, not technical — verbs an external observer sees; no function names, file paths, or algorithms. Stay within the approved design; do not invent behavior it doesn't support. For each patched item: apply the edit, record a one-line rationale in `agentNotes` (e.g. `Revised per review: <what changed>`), clear `userNotes`, and set `status = 'draft'`. **Leave every `approved` item byte-for-byte untouched** — do not run the Step 2 snapshot/merge; that path is for the writer only. Atomic-write `requirements.json` with `meta.stage = 'stage-2-in-progress'` and return to Step 3. Only the patched items reappear as fresh decisions; approved items keep their `status` and surface with the `preAnswered` ◆ marker. Tell the user: `"Revised the N commented requirement(s) in place — only those are back for review; previously-approved items carry forward (◆)."`
+
+**Any comment broad → fresh-writer escalation.** Increment `meta.writerRedispatchIterations` (init 0 if absent; **never decrements**). If new value > 3, bail: `"Stage 2 writer-redispatch cap reached after 3 passes. Latest comments preserved in requirements.json. Re-spawn spec fresh or escalate."` Atomic-write `meta.stage = 'writer-redispatch-pending'` BEFORE re-dispatching. Tell user: `"Comments span more than the named items — re-running the writer over the design; re-flag anything it misses on the next pass."` After the writer chunk merge (Step 2, which resets `meta.stage = 'stage-2-in-progress'`), return to Step 3.
+
+**Patch not converging.** If an item you already patched comes back with another comment, the localized edit isn't landing — escalate that round via fresh-writer (or bounce via §5.1 if the new comment points at the design) rather than patching the same item a third time.
 
 ### Step 6 — Stage-2 state-machine table
 
 | `meta.stage` | Set at | Resume action on lead respawn |
 |---|---|---|
-| `stage-2-in-progress` | Step 2 merge / §5.1 bounce-returns / §5.2 writer-merge | If `meta.openAskId` set → Resume Logic re-attach; else → Step 3 (issue review deck) |
-| `writer-redispatch-pending` | §5.2 entry | §5.2 writer re-dispatch |
+| `stage-2-in-progress` | Step 2 merge / §5.1 bounce-returns / §5.2 writer-merge / §5.2 lead patch | If `meta.openAskId` set → Resume Logic re-attach; else → Step 3 (issue review deck) |
+| `writer-redispatch-pending` | §5.2 fresh-writer escalation entry | §5.2 fresh-writer re-dispatch |
 | `stage-2-verdict-pending` | Step 4 atomic writeback | Step 5 verdict |
 | `stage-2-done` | Step 5 case 1 | Stage 3 entry |
 

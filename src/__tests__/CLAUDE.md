@@ -1,2 +1,2 @@
 - `historyEventsPath(sessionId)` resolves to a home-relative global path, not the `testDir` fixture — assertions on history events must read from `historyEventsPath(sessionId)` directly, and `afterEach` does not clean those files up.
-- Set `process.env['SISYPHUS_DISABLE_NOTIFY'] = '1'` at module level in any test file that calls `createAsk` — without it, asks silently fire real OS notifications even though tests pass.
+- Set `process.env['SISYPHUS_DISABLE_NOTIFY'] = '1'` before any test runs in any test file that calls `createAsk` — without it, asks silently fire real OS notifications even though tests pass.

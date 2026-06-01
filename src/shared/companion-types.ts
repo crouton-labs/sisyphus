@@ -56,7 +56,7 @@ export interface FeedbackEntry {
 
 export type CommentaryEvent =
   | 'session-start'
-  | 'cycle-boundary'
+  | 'mode-transition'
   | 'session-complete'
   | 'level-up'
   | 'achievement'

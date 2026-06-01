@@ -1,0 +1,1 @@
+- `detailReportBlocks` must be ordered **newest-first** (reversed from `agent.reports`). The `report` node lookup uses `agent.reports.length - 1 - i` to map block index back to `reportIndex` — if passed in forward order, the wrong block is shown silently with no error.

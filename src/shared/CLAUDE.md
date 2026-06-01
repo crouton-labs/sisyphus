@@ -2,7 +2,6 @@
 - `AgentStatus 'lost'` ≠ `'crashed'`: `'lost'` means the tmux pane vanished (daemon restart, session resume with pane gone); `'crashed'` means process exited non-zero. Filtering only `'crashed'` misses silently-disappeared agents.
 - `ObservationContext` must be captured *before* mutating `CompanionState` — it's the pre-update snapshot for threshold-crossing detection (`prevLevel`, `prevSessionsCompleted`, `prevConsecutiveEfficientSessions`). Building it after mutation silently kills level-up/streak firings.
 - `firedDetectors[detectorId] = lastDedupKey` prevents re-firing. Changing a detector's key derivation logic silently re-enables all previously suppressed observations for existing installations.
-- `RunningStats.m2` is raw sum of squared deviations (Welford's). Variance = `m2 / (count - 1)`, not `m2` directly.
 - `CompanionBaselines.recentAgentThroughput` is a *completion-time snapshot* RunningStats — its z-score drives the `grind` mood signal. Different from `recentActiveAgents` (live value, written by pane-monitor). Updating one doesn't update the other.
 - `taskHistory` keys are normalized task hashes. Adding task tracking without matching the same normalization silently misses matches, breaking `sisyphean`/`stubborn`/`one-must-imagine` achievement counts.
 - `wallClockMs` vs `activeMs`: wall time (start→end) vs cumulative agent active time. Summing cycle-level `activeMs` double-counts cross-cycle agents.
