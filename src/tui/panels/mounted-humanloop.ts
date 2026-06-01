@@ -165,14 +165,30 @@ export function mountResolutionPanel(
     return deck;
   }
 
+  // Find the first ask with a readable deck at or after `start` (wrapping once),
+  // skipping deck-less asks — a notify with no options, or one whose deck.json
+  // isn't written yet / has gone stale. Returns null only when NO queued ask
+  // builds, which is the sole condition that should tear the inbox down.
+  function firstBuildableFrom(start: number): { idx: number; deck: Deck } | null {
+    if (queue.length === 0) return null;
+    for (let off = 0; off < queue.length; off++) {
+      const idx = (start + off) % queue.length;
+      const deck = buildDeck(idx);
+      if (deck) return { idx, deck };
+    }
+    return null;
+  }
+
+  // Initial deck — skip deck-less asks rather than failing the whole mount. If
+  // none build, return null so the caller never enters resolution mode (a live
+  // handle with no deck would trap the user — handleKey is unbound).
+  const initial = firstBuildableFrom(currentIndex);
+  if (!initial) return null;
+  currentIndex = initial.idx;
+  const initialDeck = initial.deck;
+
   // Coords for the initial item — stable reference for initial deck + progress read.
   const { cwd: initCwd, sessionId: initSessionId, askId: initAskId } = itemCoords(item());
-
-  // Initial deck — if missing (file gone, stale inbox, etc.) return null so the caller
-  // never enters resolution mode. Returning a live no-op handle traps the user with no
-  // way to escape because handleKey is unbound.
-  const initialDeck = buildDeck(currentIndex);
-  if (!initialDeck) return null;
 
   // Track answered count for current-qid derivation (Gap 2 option a)
   let currentDeck = initialDeck;
@@ -250,14 +266,16 @@ export function mountResolutionPanel(
         return;
       }
 
-      currentIndex = Math.min(currentIndex, queue.length - 1);
-      const nextItem = queue[currentIndex]!;
-      const nextCoords = itemCoords(nextItem);
-      const nextDeck = buildDeck(currentIndex);
-      if (!nextDeck) {
+      // Advance to the next ask with a readable deck, skipping any deck-less ones
+      // rather than tearing the whole inbox down on the first unbuildable ask.
+      const next = firstBuildableFrom(Math.min(currentIndex, queue.length - 1));
+      if (!next) {
         teardown();
         return;
       }
+      currentIndex = next.idx;
+      const nextDeck = next.deck;
+      const nextCoords = itemCoords(queue[currentIndex]!);
 
       currentDeck = nextDeck;
       const nextProgress = readProgress(nextCoords.cwd, nextCoords.sessionId, nextCoords.askId);
@@ -271,7 +289,16 @@ export function mountResolutionPanel(
       });
       setDeckWatch(nextCoords, nextDeck);
       requestRender();
-    })();
+    })().catch((err) => {
+      // A rejected await in here (orphan dispatch hitting the daemon's 10s
+      // socket timeout, updateMeta racing a missing meta.json, …) would
+      // otherwise escape as an unhandled rejection and kill the whole TUI —
+      // single-interaction decks trigger this because a comment-submit
+      // auto-completes and fires submitResponses on that keystroke. Surface it
+      // as a notification and keep the dashboard alive instead.
+      notify(state, `Failed to submit answer: ${err instanceof Error ? err.message : String(err)}`);
+      requestRender();
+    });
   };
 
   // ── Live deck reload ──────────────────────────────────────────────────────
@@ -327,7 +354,11 @@ export function mountResolutionPanel(
       const { cwd, sessionId, askId } = itemCoords(it);
       const cur = readMeta(cwd, sessionId, askId);
       if (cur?.status === 'pending') {
-        void updateMeta(cwd, sessionId, askId, { status: 'in-progress', startedAt: new Date().toISOString() });
+        // Swallow: a transient meta write failure mid-typing must not escape as
+        // an unhandled rejection and kill the dashboard. The status flip is
+        // best-effort book-keeping; the keystroke is already persisted.
+        void updateMeta(cwd, sessionId, askId, { status: 'in-progress', startedAt: new Date().toISOString() })
+          .catch(() => { /* best-effort */ });
       }
     },
     onComplete: (responses: InteractionResponse[]) => {

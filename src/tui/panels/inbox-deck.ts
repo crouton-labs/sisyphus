@@ -23,24 +23,39 @@ function mountInlineDeck(
   cols: number,
   rows: number,
 ): MountedResolutionHandle | null {
+  // Reviews are surfaced by the review-action panel, not the deck resolver —
+  // they have no deck.json, so buildDeck() returns null and the resolver
+  // would tear the whole inbox surface down the moment it advanced onto one.
+  // Excluding them keeps the resolver to deck-backed asks; once those drain
+  // it tears down and renderInboxDeckRows re-dispatches the now-front review.
+  const deckQueue = state.aggregateInbox.filter((i) => i.kind !== 'review');
+
+  // A deep-link ("open in dashboard") records the triaged askId so this mount
+  // opens on it rather than the oldest queued ask. One-shot: consume regardless
+  // of match so later natural navigations default back to startIndex 0.
+  let startIndex = 0;
+  if (state.inlineDeckStartAskId) {
+    const idx = deckQueue.findIndex((i) => askIdFromDir(i.dir) === state.inlineDeckStartAskId);
+    if (idx >= 0) startIndex = idx;
+    state.inlineDeckStartAskId = null;
+  }
+
   return mountResolutionPanel(
     {
-      // Reviews are surfaced by the review-action panel, not the deck resolver —
-      // they have no deck.json, so buildDeck() returns null and the resolver
-      // would tear the whole inbox surface down the moment it advanced onto one.
-      // Excluding them keeps the resolver to deck-backed asks; once those drain
-      // it tears down and renderInboxDeckRows re-dispatches the now-front review.
-      aggregateInbox: state.aggregateInbox.filter((i) => i.kind !== 'review'),
-      startIndex: 0,
+      aggregateInbox: deckQueue,
+      startIndex,
       cols,
       rows,
       daemonSend: send,
       onUnmount: () => {
         state.inlineDeck = null;
         state.visuals.clear();
-        // Whenever the deck goes away (queue drained, ask vanished, Esc,
-        // cursor-leave) return focus to the session tree so navigation resumes.
-        state.focusPane = 'tree';
+        // Don't steal focus on teardown. When the queue drains from answering an
+        // ask, keep focus on the inbox so the next pending ask — advanced into, or
+        // arriving via poll, or a now-front review — re-mounts and stays
+        // answerable in place. Answering an item should never bounce the user back
+        // to the tree. The paths that genuinely want the tree (Esc at deck top,
+        // cursor leaving needs-you-virtual) set focusPane themselves.
         requestRender();
       },
       onOrphanTakeover: makeOrphanTakeover(state, {

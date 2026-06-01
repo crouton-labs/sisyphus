@@ -62,6 +62,16 @@ export function setupTerminal(): () => void {
     console.error(err);
     process.exit(1);
   });
+  // Safety net for the whole class of stray async work (fire-and-forget IIFEs,
+  // unguarded `void someAsync()`): without this, Node ≥15 terminates on an
+  // unhandled rejection and the alternate screen / cursor are never restored.
+  // Individual call sites should still `.catch` to degrade gracefully — this
+  // only guarantees the terminal is restored before we die.
+  process.on('unhandledRejection', (reason) => {
+    cleanup();
+    console.error(reason);
+    process.exit(1);
+  });
 
   return cleanup;
 }
