@@ -136,8 +136,8 @@ describe('mergeHookManifests', () => {
     const layers: PluginLayer[] = [{ source: 'bundled', root: bundled }];
     const merged = mergeHookManifests(layers, { agentType: 'plan', interactive: false });
     const group = merged.PreToolUse![0]!;
-    assert.equal((group as Record<string, unknown>).agentTypes, undefined);
-    assert.equal((group as Record<string, unknown>).condition, undefined);
+    assert.equal((group as unknown as Record<string, unknown>).agentTypes, undefined);
+    assert.equal((group as unknown as Record<string, unknown>).condition, undefined);
     assert.equal(group.matcher, 'Bash');
   });
 });

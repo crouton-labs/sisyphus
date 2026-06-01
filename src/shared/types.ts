@@ -202,22 +202,7 @@ export interface OrchestratorCycle {
 
 export type { Deck, Interaction, InteractionOption, InteractionKind, InteractionResponse, FeedbackResult, FeedbackComment } from '@crouton-kit/humanloop';
 
-// Sisyphus-only extension: modeChain on DeckSource
-import type { DeckSource as HumanloopDeckSource, FeedbackResult, InteractionKind, InteractionResponse } from '@crouton-kit/humanloop';
-
-export interface ModeChainEntry {
-  mode: string;
-  /** Cycles spent in this segment. Absent for the trailing (current) entry. */
-  cycles?: number;
-  /** Active ms accumulated in this segment. Absent for the trailing entry. */
-  activeMs?: number;
-}
-
-/** Sisyphus DeckSource extends humanloop's with orchestrator mode-chain. */
-export type DeckSource = HumanloopDeckSource & {
-  /** For orchestrator mode-transition notify decks: ordered chain of modes visited. Trailing entry is the current mode. */
-  modeChain?: ModeChainEntry[];
-};
+import type { FeedbackResult, InteractionKind, InteractionResponse } from '@crouton-kit/humanloop';
 
 export interface DeckAskOutput {
   kind?: 'deck';
@@ -262,8 +247,6 @@ export interface AskMeta {
   kind?: InteractionKind;
   /** Set on system-emitted error-kind asks; carries the takeover-dispatch context. */
   orphanTarget?: { kind: 'agent'; agentId: string; paneId?: string } | { kind: 'orchestrator' };
-  /** Set on orchestrator mode-transition notify asks; aggregation key for rolling mode-change notifications. */
-  modeTransition?: true;
   /** Set on the original ask when a heartbeat reminder ask has been emitted for it; holds the heartbeat askId for cascade-resolve. */
   heartbeatAskId?: string;
 }

@@ -72,18 +72,17 @@ const ALL_EXAMPLES: Array<{ event: string; mood: string; context: string; output
   { event: 'session-start', mood: 'grinding', context: 'migrate database schema', output: 'Database migration. The kind of task that sounds simple until you\'re three hours in.' },
   { event: 'agent-crash', mood: 'frustrated', context: 'agent-003 (reviewer) crashed. 2/5 agents still running', output: 'Down to two out of five. The reviewer went first, which is either ironic or fitting.' },
   { event: 'late-night', mood: 'existential', context: '3:14am, 2 sessions active', output: 'Something about 3am makes every function look like a confession.' },
-  { event: 'cycle-boundary', mood: 'zen', context: 'Cycle 4 complete. 5 agents all submitted clean reports', output: 'Five clean reports. No notes. That quiet after the last one lands is the best part.' },
+  { event: 'mode-transition', mood: 'grinding', context: 'Entering Implementation mode. Discovery: 3 cycles · 24m active.', output: 'Discovery is done pretending it was the hard part. Now we actually build the thing.' },
+  { event: 'mode-transition', mood: 'zen', context: 'Entering Validation mode. Implementation: 5 cycles · 1h active.', output: 'Code is written. Now the part where we find out which of my assumptions were lies.' },
   { event: 'level-up', mood: 'excited', context: 'Level 7 (Boulder Artisan) → 8 (Crag Whisperer)', output: 'Crag Whisperer. Could be worse. Could be "guy who pushes rocks forever."' },
   { event: 'idle-wake', mood: 'sleepy', context: 'Idle for 45 minutes', output: 'Forty-five minutes of nothing, and the workspace looks exactly the same. Comforting or depressing.' },
   { event: 'session-complete', mood: 'zen', context: 'Task: fix CI pipeline. 1 agent, 1 cycle, 4min', output: 'One agent, one cycle, four minutes. If they were all like this, what would I complain about.' },
   { event: 'session-start', mood: 'existential', context: 'rewrite the entire test suite', output: 'Rewriting every test. Each one a small promise that the code does what someone thinks it does.' },
-  { event: 'cycle-boundary', mood: 'grinding', context: 'Cycle 7. 3 agents running, 1 crashed, 2 completed', output: 'Cycle seven and the survivors are doing the work of five. Nobody asked them to.' },
   { event: 'late-night', mood: 'sleepy', context: '1:30am, 1 session active', output: 'Past one. Everything takes twice as long and matters half as much at this hour.' },
   { event: 'session-complete', mood: 'excited', context: 'Task: implement search. 8 agents, 3 cycles', output: 'Search works. Eight agents and none of them stepped on each other. That never happens.' },
   { event: 'agent-crash', mood: 'zen', context: 'agent-001 crashed during linting', output: 'Lost one to the linter. Not the worst way to go.' },
   { event: 'idle-wake', mood: 'grinding', context: 'Idle for 2 hours', output: 'Two hours away and nothing changed. Exactly as expected, exactly as disappointing.' },
   { event: 'session-start', mood: 'happy', context: 'add dark mode', output: 'Dark mode. Finally a task that matches the terminal aesthetic.' },
-  { event: 'cycle-boundary', mood: 'frustrated', context: 'Cycle 3. 2 agents crashed, 1 completed with errors', output: 'Two crashed, one limped back. If this were a heist movie, we\'d be in the part where the plan falls apart.' },
   { event: 'level-up', mood: 'zen', context: 'Level 12 (Slope Philosopher) → 13 (Gradient Monk)', output: 'Gradient Monk. A title for finding calm in repetition. Accurate enough.' },
   { event: 'session-complete', mood: 'grinding', context: 'Task: dependency upgrades. 6 agents, 5 cycles, 40min', output: 'Forty minutes on dependencies. The kind of work that feels like running in place until suddenly you\'re done.' },
   { event: 'late-night', mood: 'grinding', context: '4:22am, 3 sessions running', output: 'Three sessions at four in the morning. Either dedication or the absence of better judgment.' },
@@ -555,13 +554,12 @@ function buildPersonality(stats: CompanionStats): string {
 function shouldGenerateCommentary(event: CommentaryEvent): boolean {
   switch (event) {
     case 'session-start':
+    case 'mode-transition':
     case 'session-complete':
     case 'level-up':
     case 'achievement':
     case 'late-night':
       return true;
-    case 'cycle-boundary':
-      return Math.random() < 0.5;
     case 'idle-wake':
       return Math.random() < 0.5;
     case 'agent-crash':

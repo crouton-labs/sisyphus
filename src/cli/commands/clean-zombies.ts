@@ -4,7 +4,6 @@ import { loadSessionRegistry } from '../../daemon/server.js';
 import * as askStore from '../../daemon/ask-store.js';
 import * as state from '../../daemon/state.js';
 import { statePath, askOutputPath } from '../../shared/paths.js';
-import type { DeckSource } from '../../shared/types.js';
 
 const HEARTBEAT_ASKED_BY = 'system:heartbeat';
 const ORPHAN_ASKED_BY = 'system:orphan-handler';
@@ -12,13 +11,12 @@ const ORPHAN_ASKED_BY = 'system:orphan-handler';
 interface ZombieSummary {
   heartbeats: number;
   orphans: number;
-  modeGates: number;
 }
 
 interface ZombieEntry {
   sessionId: string;
   askId: string;
-  kind: 'heartbeat' | 'orphan' | 'mode-gate';
+  kind: 'heartbeat' | 'orphan';
   reason: string;
 }
 
@@ -74,37 +72,6 @@ function isOrphanZombie(
   return agent.status !== 'running';
 }
 
-/**
- * Check if a mode-transition ask is stale — session has advanced past its modeChain.
- */
-function isModeGateZombie(
-  cwd: string,
-  sessionId: string,
-  askId: string,
-): boolean {
-  const meta = askStore.readMeta(cwd, sessionId, askId);
-  if (!meta) return false;
-  if (meta.modeTransition !== true) return false;
-  if (meta.status === 'answered') return false;
-  if (existsSync(askOutputPath(cwd, sessionId, askId))) return false;
-
-  const deck = askStore.readDecisions(cwd, sessionId, askId);
-  if (!deck) return false;
-
-  const source = deck.source as DeckSource | undefined;
-  const chain = source?.modeChain;
-  if (!chain || chain.length === 0) return false;
-
-  let currentMode: string | undefined;
-  try {
-    const session = state.getSession(cwd, sessionId);
-    currentMode = session.orchestratorCycles[session.orchestratorCycles.length - 1]?.mode;
-  } catch { return false; }
-
-  if (!currentMode) return false;
-  return !chain.some(e => e.mode === currentMode);
-}
-
 async function resolveZombie(
   cwd: string,
   sessionId: string,
@@ -127,11 +94,6 @@ async function resolveZombie(
       interactionId = 'orphan';
       selectedOptionId = 'dismiss';
       freetext = 'auto-resolved: agent superseded by replacement (clean-zombies sweep)';
-      break;
-    case 'mode-gate':
-      interactionId = 'mode-transition';
-      selectedOptionId = 'ack';
-      freetext = 'auto-resolved: session advanced past mode-transition (clean-zombies sweep)';
       break;
   }
 
@@ -157,8 +119,6 @@ async function sweepSession(
       const meta = askStore.readMeta(cwd, sessionId, askId);
       const agentId = meta?.orphanTarget?.kind === 'agent' ? meta.orphanTarget.agentId : 'unknown';
       zombies.push({ sessionId, askId, kind: 'orphan', reason: `agent ${agentId} is no longer running` });
-    } else if (isModeGateZombie(cwd, sessionId, askId)) {
-      zombies.push({ sessionId, askId, kind: 'mode-gate', reason: 'session advanced past mode-transition' });
     }
   }
 
@@ -168,7 +128,7 @@ async function sweepSession(
 export function registerCleanZombies(program: Command): void {
   program
     .command('clean-zombies')
-    .description('Sweep all sessions for zombie asks (heartbeats whose original is answered, orphans whose agent is superseded, stale mode-gate notifications) and dismiss them')
+    .description('Sweep all sessions for zombie asks (heartbeats whose original is answered, orphans whose agent is superseded) and dismiss them')
     .addHelpText(
       'after',
       `
@@ -182,8 +142,8 @@ Output (stdout, plain text — human-readable maintenance summary; not for agent
 
 Effects
   Mutates ask records: writes response.json and updates status to "answered" for each
-  zombie found. Dismisses heartbeat asks whose original was answered, orphan asks whose
-  target agent is no longer running, and mode-gate asks the session has advanced past.
+  zombie found. Dismisses heartbeat asks whose original was answered and orphan asks whose
+  target agent is no longer running.
 
 Exit codes: 0 ok`,
     )
@@ -218,7 +178,6 @@ Exit codes: 0 ok`,
       const summary: ZombieSummary = {
         heartbeats: allZombies.filter(z => z.kind === 'heartbeat').length,
         orphans: allZombies.filter(z => z.kind === 'orphan').length,
-        modeGates: allZombies.filter(z => z.kind === 'mode-gate').length,
       };
       const total = allZombies.length;
 
@@ -242,6 +201,6 @@ Exit codes: 0 ok`,
         }
       }
 
-      console.log(`Dismissed ${total} zombie${total === 1 ? '' : 's'} across ${sessionsSweept.size} session${sessionsSweept.size === 1 ? '' : 's'}: ${summary.heartbeats} heartbeat${summary.heartbeats === 1 ? '' : 's'}, ${summary.orphans} orphan${summary.orphans === 1 ? '' : 's'}, ${summary.modeGates} mode-gate${summary.modeGates === 1 ? '' : 's'}.`);
+      console.log(`Dismissed ${total} zombie${total === 1 ? '' : 's'} across ${sessionsSweept.size} session${sessionsSweept.size === 1 ? '' : 's'}: ${summary.heartbeats} heartbeat${summary.heartbeats === 1 ? '' : 's'}, ${summary.orphans} orphan${summary.orphans === 1 ? '' : 's'}.`);
     });
 }

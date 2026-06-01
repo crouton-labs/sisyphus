@@ -8,7 +8,7 @@ import { spawnAgent, restartAgent, resetAgentCounterFromState, clearAgentCounter
 import { trackSession, untrackSession, updateTrackedWindow, flushTimers, flushCycleTimer, flushAgentTimer, registerAgentTimer, markEventCompletion, markEventCrash, markEventLevelUp } from './pane-monitor.js';
 import { resetColors } from './colors.js';
 import { loadConfig } from '../shared/config.js';
-import { goalPath, cycleLogPath, sessionDir, sessionsDir, tmuxSessionName } from '../shared/paths.js';
+import { goalPath, sessionDir, sessionsDir, tmuxSessionName } from '../shared/paths.js';
 import { unregisterSessionPanes, unregisterAgentPane, getSessionPanes } from './pane-registry.js';
 import type { Session } from '../shared/types.js';
 import { sendTerminalNotification } from './notify.js';
@@ -20,8 +20,9 @@ import { loadCompanion, saveCompanion, recordCommentary, recordFeedback, onSessi
 import { buildMemoryContext } from './companion-memory.js';
 import { SPINNER_VERBS } from '../shared/companion-render.js';
 import { generateCommentary, generateNickname } from './companion-commentary.js';
-import { showCommentaryPopup, showCommentaryPopupQueue } from './companion-popup.js';
+import { showCommentaryPopupQueue } from './companion-popup.js';
 import type { PopupPage } from './companion-popup.js';
+import { buildModeTransitionCommentary } from './mode-transition.js';
 import type { CommentaryEvent, CompanionState } from '../shared/companion-types.js';
 import { emitHistoryEvent, writeSessionSummary, pruneHistory } from './history.js';
 import { runSessionUploadAndPersist } from './uploader.js';
@@ -105,7 +106,7 @@ function fireHaikuNaming(
   });
 }
 
-function fireCommentary(event: CommentaryEvent, companion: CompanionState, context?: string, flash = false, repo?: string, sessionId?: string): void {
+function fireCommentary(event: CommentaryEvent, companion: CompanionState, context?: string, flash = false, repo?: string, sessionId?: string, popupTitle?: string): void {
   const memoryCtx = buildMemoryContext(repo);
   generateCommentary(event, companion, context, memoryCtx).then(text => {
     if (text) {
@@ -113,7 +114,7 @@ function fireCommentary(event: CommentaryEvent, companion: CompanionState, conte
         const c = loadCompanion();
         recordCommentary(c, text, event);
         if (flash) {
-          const feedback = showCommentaryPopup(text);
+          const feedback = showCommentaryPopupQueue([{ text, title: popupTitle }]);
           if (feedback) {
             recordFeedback(c, text, feedback.rating, event, feedback.comment);
             if (sessionId) {
@@ -643,31 +644,13 @@ export function onAllAgentsDone(sessionId: string, cwd: string, windowId: string
     emitHistoryEvent(sessionId, 'cycle-boundary', { cycle: lastCycle.cycle, mode: lastCycle.mode ?? null, agentsSpawned: lastCycle.agentsSpawned.length, activeMs: session.activeMs });
   }
 
-  // Fire companion commentary at cycle boundary (50% chance) and advance spinner verb
+  // Advance the companion's spinner verb at the cycle boundary. Per-cycle
+  // commentary was removed — the companion now speaks only on mode transitions
+  // (see handleYield) and at session end.
   try {
     const companion = loadCompanion();
     companion.spinnerVerbIndex = (companion.spinnerVerbIndex + 1) % SPINNER_VERBS.length;
     saveCompanion(companion);
-
-    const goal = readGoal(cwd, sessionId, session.task);
-    const modeLabel = lastCycle?.mode ? ` (${lastCycle.mode})` : '';
-    const agentMap = new Map(session.agents.map(a => [a.id, a]));
-    const spawnedThisCycle = (lastCycle?.agentsSpawned ?? [])
-      .map(id => agentMap.get(id))
-      .filter(Boolean)
-      .map(a => `${a!.name} (${a!.agentType.replace(/^sisyphus:/, '')}, ${a!.status})`)
-      .join(', ');
-    let cycleCtx = `Cycle ${cycleNumber}${modeLabel} complete. Goal: ${truncate(goal, 80)}`;
-    if (spawnedThisCycle) cycleCtx += `\nAgents: ${truncate(spawnedThisCycle, 200)}`;
-    // Include cycle log if available
-    try {
-      const logPath = cycleLogPath(cwd, sessionId, cycleNumber);
-      if (existsSync(logPath)) {
-        const log = readFileSync(logPath, 'utf-8').trim();
-        if (log) cycleCtx += `\nCycle log: ${truncate(log, 200)}`;
-      }
-    } catch { /* best-effort */ }
-    fireCommentary('cycle-boundary', companion, cycleCtx, true, session.cwd, sessionId);
   } catch { /* non-fatal */ }
 
   // Respawn on next tick — agents already finished, no delay needed
@@ -894,10 +877,23 @@ export async function handleYield(sessionId: string, cwd: string, nextPrompt?: s
   // and the pane monitor could see 0 live panes and pause the session before we respawn.
   respawningSessions.add(sessionId);
 
-  await orchestrator.handleOrchestratorYield(sessionId, cwd, nextPrompt, mode);
+  const transition = await orchestrator.handleOrchestratorYield(sessionId, cwd, nextPrompt, mode);
 
   // Mark orchestrator as done for this cycle — unblocks respawn
   orchestratorDone.add(sessionId);
+
+  // On a real mode switch, the companion comments with the new mode in the popup
+  // border ("Starting Implementation"). Fire-and-forget — must not block respawn.
+  if (transition) {
+    try {
+      const companion = loadCompanion();
+      const goal = readGoal(cwd, sessionId, state.getSession(cwd, sessionId).task);
+      const { context, popupTitle } = buildModeTransitionCommentary(
+        cwd, transition.prevMode, transition.nextMode, transition.prevModeStats,
+      );
+      fireCommentary('mode-transition', companion, `Goal: ${truncate(goal, 100)}\n${context}`, true, cwd, sessionId, popupTitle);
+    } catch { /* non-fatal */ }
+  }
   try { recomputeDots(); } catch { /* best-effort */ }
 
   const session = state.getSession(cwd, sessionId);
@@ -965,6 +961,10 @@ export async function handleComplete(sessionId: string, cwd: string, report: str
   //   2. Config.upload present but partial → warn + persist failed (diagnostic).
   //   3. Config.upload complete → fire upload.
   const config = loadConfig(cwd);
+  // Capture the raw value before the guard: isUploadConfigured()'s type predicate
+  // narrows config.upload to `undefined` on its false branch, but at runtime a
+  // partial { url:'', token:'' } is still a present UploadConfig — read it via alias.
+  const uploadCfg = config.upload;
   if (isUploadConfigured(config.upload)) {
     runSessionUploadAndPersist({
       sessionId, cwd, fullConfig: config, session: completedSession,
@@ -974,11 +974,10 @@ export async function handleComplete(sessionId: string, cwd: string, report: str
       // (with a clean Worker-supplied message via parseWorkerError); avoid double-logging.
       console.warn('[sisyphus] upload pipeline crashed; check uploadError on session state');
     });
-  } else if (config.upload) {
-    const partialUpload = config.upload;
+  } else if (uploadCfg) {
     const missing: string[] = [];
-    if (!partialUpload.url)   missing.push('upload.url');
-    if (!partialUpload.token) missing.push('upload.token');
+    if (!uploadCfg.url)   missing.push('upload.url');
+    if (!uploadCfg.token) missing.push('upload.token');
     const error = `upload skipped: missing ${missing.join(', ')}`;
     console.warn(`[sisyphus] ${error}`);
     state.updateSession(cwd, sessionId, { uploadStatus: 'failed', uploadError: error })

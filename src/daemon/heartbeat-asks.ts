@@ -4,7 +4,7 @@ import * as state from './state.js';
 import { loadSessionRegistry } from './server.js';
 import { existsSync } from 'node:fs';
 import { statePath } from '../shared/paths.js';
-import type { AskMeta, Deck, DeckSource, Interaction } from '../shared/types.js';
+import type { AskMeta, Deck, Interaction } from '../shared/types.js';
 
 export const HEARTBEAT_ASKED_BY = 'system:heartbeat';
 export const HEARTBEAT_THRESHOLD_MS = 60 * 60 * 1000;
@@ -82,34 +82,8 @@ async function emitHeartbeatAsk(
   });
 }
 
-/**
- * Returns true when the given mode-transition ask is stale — i.e. the session's
- * current mode has advanced past all modes listed in the ask's modeChain.
- */
-function isModeGateStale(
-  deck: Deck,
-  currentMode: string | undefined,
-): boolean {
-  const source = deck.source as DeckSource | undefined;
-  const chain = source?.modeChain;
-  if (!chain || chain.length === 0) return false;
-  if (!currentMode) return false;
-  // The trailing entry in the chain is the mode at emission time.
-  // If the current session mode is not in the chain, the session has moved past it.
-  return !chain.some(e => e.mode === currentMode);
-}
-
 export async function scanSessionForStaleAsks(cwd: string, sessionId: string): Promise<void> {
   const now = Date.now();
-
-  // Read current session mode once for the mode-gate pass.
-  let currentMode: string | undefined;
-  try {
-    const session = state.getSession(cwd, sessionId);
-    currentMode = session.orchestratorCycles[session.orchestratorCycles.length - 1]?.mode;
-  } catch {
-    // tolerate — state may be in flux
-  }
 
   for (const askId of askStore.listAsks(cwd, sessionId)) {
     try {
@@ -117,25 +91,6 @@ export async function scanSessionForStaleAsks(cwd: string, sessionId: string): P
       if (!meta) continue;
       if (meta.status === 'answered') continue;
       if (meta.orphaned) continue;
-
-      // --- Mode-gate stale resolution ---
-      if (meta.modeTransition === true) {
-        const deck = askStore.readDecisions(cwd, sessionId, askId);
-        if (deck && isModeGateStale(deck, currentMode)) {
-          askStore.writeOutput(cwd, sessionId, askId, [{
-            id: 'mode-transition',
-            selectedOptionId: 'ack',
-            freetext: 'auto-resolved: session advanced past mode-transition',
-          }]);
-          await askStore.updateMeta(cwd, sessionId, askId, {
-            status: 'answered',
-            completedAt: new Date().toISOString(),
-          });
-          console.log(`[sisyphus] mode-gate auto-resolved ask ${askId} for session ${sessionId} (currentMode: ${currentMode})`);
-        }
-        // Don't also emit heartbeat for mode-transition asks
-        continue;
-      }
 
       if (meta.heartbeatNotifiedAt) continue;
       // Don't emit a heartbeat for the heartbeat ask itself

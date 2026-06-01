@@ -26,7 +26,6 @@ import { orchestratorPluginLayers, renderLayeredPluginDir } from './extensions.j
 import * as tmux from './tmux.js';
 import { registerPane, unregisterPane, unregisterSessionPanes } from './pane-registry.js';
 import { flushCycleTimer } from './pane-monitor.js';
-import { emitModeTransitionNotify } from './mode-notify.js';
 import { resolveRequiredPluginDirs } from './plugins.js';
 
 
@@ -585,7 +584,14 @@ function resolveOrchestratorPane(sessionId: string, cwd: string): string | undef
   return lastCycle?.paneId ?? undefined;
 }
 
-export async function handleOrchestratorYield(sessionId: string, cwd: string, nextPrompt?: string, mode?: string): Promise<void> {
+/** Describes a real mode switch (prev mode defined and different from next). */
+export interface ModeTransition {
+  prevMode: string;
+  nextMode: string;
+  prevModeStats: { cycles: number; activeMs: number };
+}
+
+export async function handleOrchestratorYield(sessionId: string, cwd: string, nextPrompt?: string, mode?: string): Promise<ModeTransition | undefined> {
   const paneId = resolveOrchestratorPane(sessionId, cwd);
   if (paneId) {
     tmux.killPane(paneId);
@@ -617,15 +623,16 @@ export async function handleOrchestratorYield(sessionId: string, cwd: string, ne
   }
 
   await state.completeOrchestratorCycle(cwd, sessionId, nextPrompt, mode, cycleActiveMs);
-  if (mode && mode !== prevMode) {
-    await emitModeTransitionNotify(cwd, sessionId, prevMode, mode, prevModeStats);
-  }
 
   const freshSession = state.getSession(cwd, sessionId);
   const runningAgents = freshSession.agents.filter(a => a.status === 'running');
   if (runningAgents.length === 0) {
     console.log(`[sisyphus] Orchestrator yielded with no running agents for session ${sessionId}`);
   }
+
+  // Surface a real mode switch so the caller can fire companion commentary.
+  // `prevModeStats` is set iff `mode && prevMode && mode !== prevMode`.
+  return prevModeStats ? { prevMode: prevMode!, nextMode: mode!, prevModeStats } : undefined;
 }
 
 export async function handleOrchestratorComplete(sessionId: string, cwd: string, report: string): Promise<void> {

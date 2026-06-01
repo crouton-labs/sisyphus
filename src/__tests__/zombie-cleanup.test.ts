@@ -1,9 +1,8 @@
 /**
- * Tests for zombie-ask auto-cleanup (Fix A, B, C) and clean-zombies CLI (Fix D).
+ * Tests for zombie-ask auto-cleanup (Fix A, B) and clean-zombies CLI (Fix D).
  *
  * Fix A — heartbeat cascade-resolve
  * Fix B — agent-orphan auto-resolve via resolveAgentOrphanAsks
- * Fix C — mode-gate stale resolution via scanSessionForStaleAsks
  * Fix D — clean-zombies CLI dry-run sweep
  */
 import { describe, it, before, after } from 'node:test';
@@ -17,8 +16,7 @@ import { createSession } from '../daemon/state.js';
 import * as askStore from '../daemon/ask-store.js';
 import * as state from '../daemon/state.js';
 import { emitOrphanAsk, resolveAgentOrphanAsks } from '../daemon/orphan-asks.js';
-import { scanSessionForStaleAsks, HEARTBEAT_ASKED_BY } from '../daemon/heartbeat-asks.js';
-import { emitModeTransitionNotify } from '../daemon/mode-notify.js';
+import { HEARTBEAT_ASKED_BY } from '../daemon/heartbeat-asks.js';
 import { askOutputPath } from '../shared/paths.js';
 
 let testDir: string;
@@ -154,69 +152,6 @@ describe('Fix B: agent-orphan auto-resolve via resolveAgentOrphanAsks', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Fix C — Mode-gate stale resolution
-// ---------------------------------------------------------------------------
-describe('Fix C: mode-gate stale resolution via scanSessionForStaleAsks', () => {
-  it('resolves a stale mode-transition ask when session has advanced past it', async () => {
-    const sessionId = randomUUID();
-    createSession(sessionId, 'test mode-gate stale', testDir);
-
-    // Emit a discovery→planning mode transition ask
-    await emitModeTransitionNotify(testDir, sessionId, 'discovery', 'planning');
-
-    const asks = askStore.listAsks(testDir, sessionId);
-    assert.equal(asks.length, 1, 'one mode-transition ask should exist');
-    const askId = asks[0]!;
-    const meta = askStore.readMeta(testDir, sessionId, askId);
-    assert.equal(meta?.modeTransition, true);
-    assert.equal(meta?.status, 'pending');
-
-    // Advance session to 'implementation' by injecting a cycle with mode set.
-    // The scanner reads orchestratorCycles[-1].mode.
-    await state.addOrchestratorCycle(testDir, sessionId, {
-      cycle: 1,
-      timestamp: new Date().toISOString(),
-      activeMs: 0,
-      agentsSpawned: [],
-      mode: 'implementation',
-    });
-
-    // The session's current mode is now 'implementation', which is NOT in
-    // the modeChain ['discovery', 'planning'] — so the ask is stale.
-    await scanSessionForStaleAsks(testDir, sessionId);
-
-    const updatedMeta = askStore.readMeta(testDir, sessionId, askId);
-    assert.equal(updatedMeta?.status, 'answered', 'stale mode-gate ask must be auto-resolved by scanner');
-    assert.ok(
-      existsSync(askOutputPath(testDir, sessionId, askId)),
-      'response.json must exist after mode-gate auto-resolve',
-    );
-  });
-
-  it('does NOT resolve a mode-transition ask when session is still at the emitted mode', async () => {
-    const sessionId = randomUUID();
-    createSession(sessionId, 'test mode-gate current', testDir);
-
-    await emitModeTransitionNotify(testDir, sessionId, 'discovery', 'planning');
-    const askId = askStore.listAsks(testDir, sessionId)[0]!;
-
-    // Session mode is 'planning' — same as the last entry in the chain, so not stale
-    await state.addOrchestratorCycle(testDir, sessionId, {
-      cycle: 1,
-      timestamp: new Date().toISOString(),
-      activeMs: 0,
-      agentsSpawned: [],
-      mode: 'planning',
-    });
-
-    await scanSessionForStaleAsks(testDir, sessionId);
-
-    const updatedMeta = askStore.readMeta(testDir, sessionId, askId);
-    assert.equal(updatedMeta?.status, 'pending', 'ask must remain pending when session is still at emitted mode');
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Fix D — clean-zombies CLI dry-run
 // ---------------------------------------------------------------------------
 // We test the underlying zombie-detection logic: an agent-orphan ask whose
@@ -254,7 +189,10 @@ describe('Fix D: clean-zombies CLI dry-run', () => {
     const agentInSession = session.agents.find(a => a.id === 'agent-zombie');
     const isZombie = (
       meta!.askedBy === 'system:orphan-handler' &&
-      meta!.status !== 'answered' &&
+      // `assert.equal(meta!.status, 'pending')` above (node:assert/strict) narrowed
+      // status to the 'pending' literal; widen to string so this mirrors the real
+      // zombie predicate (status !== 'answered') without a no-overlap type error.
+      (meta!.status as string) !== 'answered' &&
       !existsSync(askOutputPath(testDir, sessionId, orphanAskId!)) &&
       meta!.orphanTarget?.kind === 'agent' &&
       (agentInSession === undefined || agentInSession.status !== 'running')
