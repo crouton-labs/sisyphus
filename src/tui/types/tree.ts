@@ -3,7 +3,7 @@ export type TreeNodeType =
   | 'messages' | 'message' | 'context' | 'context-file'
   | 'section' | 'needs-you-virtual' | 'inbox-row';
 
-export type SectionKey = 'needs-you' | 'running' | 'done';
+export type SectionKey = 'running' | 'done';
 
 interface BaseTreeNode {
   id: string;
@@ -26,7 +26,7 @@ export interface SectionTreeNode extends BaseTreeNode {
 
 export interface NeedsYouVirtualTreeNode extends BaseTreeNode {
   type: 'needs-you-virtual';
-  depth: 1;
+  depth: 0;
   pendingCount: number;
   sessionId: '';
 }
@@ -43,7 +43,6 @@ export interface SessionTreeNode extends BaseTreeNode {
   createdAt: string;
   completedAt?: string;
   activeMs: number;
-  askCount?: number;
   orphaned?: boolean;
 }
 

@@ -8,7 +8,7 @@ import { coerceKind, type InboxItem, sessionIdFromDir, askIdFromDir } from '../.
 function buildInboxLines(items: (InboxItem & { sessionName?: string })[], width: number): DetailLine[] {
   const lines: DetailLine[] = [];
   if (items.length === 0) {
-    lines.push(singleLine(' No pending asks across the fleet', { dim: true, italic: true }));
+    lines.push(singleLine(' No pending asks', { dim: true, italic: true }));
     return lines;
   }
   lines.push(singleLine(` ${items.length} pending`, { bold: true }));

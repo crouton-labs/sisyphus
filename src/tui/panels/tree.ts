@@ -36,15 +36,6 @@ function renderNodeContent(node: TreeNode, maxWidth: number): NodeContent {
   switch (node.type) {
     case 'section': {
       switch (node.section) {
-        case 'needs-you':
-          return {
-            icon: '',
-            label: 'Needs You',
-            meta: node.count > 0 ? `${node.count}` : '',
-            color: node.count > 0 ? 'red' : 'gray',
-            dim: false,
-            metaColor: 'red',
-          };
         case 'running':
           return {
             icon: '',
@@ -84,15 +75,13 @@ function renderNodeContent(node: TreeNode, maxWidth: number): NodeContent {
       const dur = formatDuration(node.activeMs);
       const agopart =
         node.status === 'completed' && node.completedAt ? formatTimeAgo(node.completedAt) : '';
-      const askBadge = node.askCount ? `!${node.askCount}` : '';
-      const meta = [askBadge, cyclePart, dur, agopart].filter(Boolean).join(' ');
-      const metaColor = node.askCount ? 'red' : undefined;
+      const meta = [cyclePart, dur, agopart].filter(Boolean).join(' ');
       const suffix = node.orphaned ? '⚠ orphan' : undefined;
       const suffixColor = node.orphaned ? 'red' : undefined;
       const displayText = node.name ?? node.task;
       const suffixWidth = suffix ? suffix.length + 1 : 0;
       const maxLabel = Math.max(8, maxWidth - meta.length - 4 - suffixWidth);
-      return { icon, label: truncate(displayText, maxLabel), meta, color, dim, metaColor, suffix, suffixColor };
+      return { icon, label: truncate(displayText, maxLabel), meta, color, dim, suffix, suffixColor };
     }
     case 'cycle': {
       const isRunning = !node.completedAt;

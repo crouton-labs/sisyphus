@@ -894,7 +894,7 @@ function renderFleetRollup(rect: Rect, state: AppState, focused: boolean): strin
     }
     const uniqueSessions = new Set(items.map(i => sessionIdFromDir(i.dir))).size;
     lines = [];
-    lines.push([seg('  Fleet Inbox', { color: 'red', bold: true })]);
+    lines.push([seg('  Inbox', { color: 'red', bold: true })]);
     lines.push(singleLine(`    ${items.length} pending across ${uniqueSessions} sessions`, { dim: true }));
     lines.push(singleLine(' '));
     lines.push([seg('  By Type', { color: 'cyan', bold: true })]);

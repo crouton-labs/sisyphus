@@ -1063,8 +1063,8 @@ function handleResolutionKey(input: string, key: Key, state: AppState, actions: 
 
 // ── handleInlineDeckKey ───────────────────────────────────────────────────────
 // Same layered precedence as handleResolutionKey, but bound to state.inlineDeck.
-// Esc unmounts and moves the tree cursor off needs-you-virtual (to the section
-// header above it, else first session, else nodes[0]); stabilizeCursor resolves
+// Esc unmounts and moves the tree cursor off needs-you-virtual (to the first
+// session, else the next node below it, else nodes[0]); stabilizeCursor resolves
 // the index on the next render.
 
 function handleInlineDeckKey(input: string, key: Key, state: AppState, actions: InputActions): void {
@@ -1083,8 +1083,8 @@ function handleInlineDeckKey(input: string, key: Key, state: AppState, actions: 
     handle.unmount();
     const nodes = actions.getNodes();
     const i = nodes.findIndex((n) => n.id === 'needs-you-virtual');
-    const prev = i > 0 ? nodes[i - 1] : (nodes.find((n) => n.type === 'session') ?? nodes[0]);
-    state.cursorNodeId = prev?.id ?? null;
+    const next = nodes.find((n) => n.type === 'session') ?? nodes[i + 1] ?? nodes[0];
+    state.cursorNodeId = next?.id ?? null;
     state.focusPane = 'tree';
     requestRender();
     return;

@@ -17,7 +17,6 @@ import type {
 import type { Session } from '../../shared/types.js';
 import type { SessionSummary } from '../state.js';
 import type { InboxItem } from '../../shared/inbox-types.js';
-import { sessionIdFromDir } from '../../shared/inbox-types.js';
 import { contextDir } from '../../shared/paths.js';
 
 /** Sort priority: active+open=0, active+closed=1, paused+open=2, paused+closed=3, completed=4 */
@@ -40,33 +39,16 @@ export function buildTree(
 ): TreeNode[] {
   const nodes: TreeNode[] = [];
 
-  // Build per-session inbox index
-  const inboxBySession = new Map<string, InboxItem[]>();
-  for (const item of aggregateInbox) {
-    const sessionId = sessionIdFromDir(item.dir);
-    const arr = inboxBySession.get(sessionId) ?? [];
-    arr.push(item);
-    inboxBySession.set(sessionId, arr);
-  }
-
-  // Bucket sessions
-  const needsYou: SessionSummary[] = [];
+  // Bucket sessions by status — sessions with pending asks stay in their natural
+  // Running/Done position; the Needs You section is a pure inbox entry point.
   const running: SessionSummary[] = [];
   const done: SessionSummary[] = [];
   for (const s of sessions) {
-    if (inboxBySession.has(s.id)) needsYou.push(s);
-    else if (s.status === 'completed') done.push(s);
+    if (s.status === 'completed') done.push(s);
     else running.push(s); // active + paused both land here
   }
 
   // Sort within each bucket
-  needsYou.sort((a, b) => {
-    const aItems = inboxBySession.get(a.id)!;
-    const bItems = inboxBySession.get(b.id)!;
-    const aOldest = Math.min(...aItems.map(i => Date.parse(i.blockedSince)));
-    const bOldest = Math.min(...bItems.map(i => Date.parse(i.blockedSince)));
-    return aOldest - bOldest;
-  });
   running.sort((a, b) => {
     const k = sessionSortKey(a) - sessionSortKey(b);
     if (k !== 0) return k;
@@ -246,7 +228,7 @@ export function buildTree(
     }
   }
 
-  function emitSessionRow(s: SessionSummary, askCount: number): void {
+  function emitSessionRow(s: SessionSummary): void {
     const sessionNodeId = `session:${s.id}`;
     const isSelected = selectedSession?.id === s.id;
     const isExpanded = expanded.has(sessionNodeId);
@@ -267,7 +249,6 @@ export function buildTree(
       createdAt: s.createdAt,
       completedAt: isSelected ? selectedSession?.completedAt : undefined,
       activeMs: isSelected ? (selectedSession?.activeMs ?? s.activeMs) : s.activeMs,
-      askCount: askCount > 0 ? askCount : undefined,
       orphaned: s.orphaned ?? false,
     } satisfies SessionTreeNode);
 
@@ -276,28 +257,24 @@ export function buildTree(
     }
   }
 
-  // Emit Needs You section
-  emitSection('needs-you', needsYou.length);
-  if (sectionExpanded('needs-you')) {
-    nodes.push({
-      id: 'needs-you-virtual',
-      type: 'needs-you-virtual',
-      depth: 1,
-      expandable: false,
-      expanded: false,
-      sessionId: '',
-      pendingCount: aggregateInbox.length,
-    } satisfies NeedsYouVirtualTreeNode);
-    for (const s of needsYou) {
-      emitSessionRow(s, inboxBySession.get(s.id)?.length ?? 0);
-    }
-  }
+  // Emit Needs You as a top-level inbox entry point — a single node, not a
+  // collapsible section (it only ever held one child). The node mounts the inline
+  // inbox deck; the count reflects pending asks, not sessions.
+  nodes.push({
+    id: 'needs-you-virtual',
+    type: 'needs-you-virtual',
+    depth: 0,
+    expandable: false,
+    expanded: false,
+    sessionId: '',
+    pendingCount: aggregateInbox.length,
+  } satisfies NeedsYouVirtualTreeNode);
 
   // Emit Running section
   emitSection('running', running.length);
   if (sectionExpanded('running')) {
     for (const s of running) {
-      emitSessionRow(s, 0);
+      emitSessionRow(s);
     }
   }
 
@@ -305,7 +282,7 @@ export function buildTree(
   emitSection('done', done.length);
   if (sectionExpanded('done')) {
     for (const s of done) {
-      emitSessionRow(s, 0);
+      emitSessionRow(s);
     }
   }
 
