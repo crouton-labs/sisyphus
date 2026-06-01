@@ -136,14 +136,14 @@ fi
       const client = line.slice(0, lastSpace);
       const clientWidth = parseInt(line.slice(lastSpace + 1), 10);
       if (!clientWidth) continue;
-      const x = Math.max(0, clientWidth - POPUP_WIDTH);
+      const x = Math.max(0, clientWidth - POPUP_WIDTH - 1); // 1-cell right margin
       const args = [
         `-c ${shellQuote(client)}`,
         '-E -b rounded',
         `-T ${shellQuote(initialTitle)}`,
         `-S "fg=${moodColor}"`,
         `-s "fg=${moodColor}"`,
-        `-x ${x} -y 0`,
+        `-x ${x} -y 2`,
         `-w ${POPUP_WIDTH} -h ${maxContentHeight}`,
         shellQuote(POPUP_SCRIPT),
       ].join(' ');

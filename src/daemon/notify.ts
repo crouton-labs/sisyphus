@@ -112,8 +112,10 @@ function ensureNotifyProcess(): ChildProcess | null {
   // Don't keep short-lived parents alive (CLI, tests). The daemon stays up
   // for other reasons; when it exits, the notify subprocess sees stdin EOF.
   notifyProcess.unref();
-  notifyProcess.stdin?.unref();
-  notifyProcess.stderr?.unref();
+  // stdin/stderr are pipe-backed Socket streams that expose unref() at runtime,
+  // but the Writable/Readable types don't declare it — cast through unknown.
+  (notifyProcess.stdin as unknown as { unref(): void } | null)?.unref();
+  (notifyProcess.stderr as unknown as { unref(): void } | null)?.unref();
 
   return notifyProcess;
 }

@@ -41,7 +41,7 @@ Exit codes: 0 ok | 3 not_found.`,
         }));
         emitJsonOk({ ...companionData, badges });
       } else {
-        emitJsonOk(companionData);
+        emitJsonOk({ ...companionData });
       }
     });
 }
