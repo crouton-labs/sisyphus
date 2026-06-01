@@ -18,7 +18,7 @@ import { writeToStdout, startKeypressListener, onResize } from './terminal.js';
 import { buildTree } from './lib/tree.js';
 import { precomputePrefixes } from './lib/tree-render.js';
 import { resolveReports } from './lib/reports.js';
-import { send, inboxList } from './lib/client.js';
+import { send, inboxList, focusGet } from './lib/client.js';
 import {
   listAllWindowIds,
   openEditorPopup,
@@ -205,14 +205,13 @@ function buildStatusRows(
   if (cursorNode?.type === 'needs-you-virtual') {
     const count = state.aggregateInbox.length;
     return [
-      ' ' + ansiColor('⚑', 'red', true) + ' ' + ansiColor('Fleet Inbox', 'white', true),
-      ' ' + ansiDim(`${count} pending ask${count !== 1 ? 's' : ''} across the fleet`),
+      ' ' + ansiColor('⚑', 'red', true) + ' ' + ansiColor('Inbox', 'white', true),
+      ' ' + ansiDim(`${count} pending ask${count !== 1 ? 's' : ''} in this project`),
     ];
   }
 
   if (cursorNode?.type === 'section') {
-    const label = cursorNode.section === 'needs-you' ? 'Needs You' :
-                  cursorNode.section === 'running' ? 'Running' : 'Done';
+    const label = cursorNode.section === 'running' ? 'Running' : 'Done';
     return [ansiDim(` ${label} section`), ''];
   }
 
@@ -312,14 +311,21 @@ export function startApp(state: AppState, cleanup: () => void): void {
       const statusPromise = state.selectedSessionId
         ? send({ type: 'status', sessionId: state.selectedSessionId, cwd: state.cwd })
         : null;
-      const inboxPromise = inboxList();
+      const inboxPromise = inboxList(state.cwd);
+      const focusPromise = focusGet(state.cwd);
 
-      const [listRes, statusRes, aggregateInbox] = await Promise.all([
+      const [listRes, statusRes, aggregateInbox, focusReq] = await Promise.all([
         listPromise,
         statusPromise ?? Promise.resolve(null),
         inboxPromise,
+        focusPromise,
       ]);
       state.aggregateInbox = aggregateInbox;
+
+      if (focusReq !== null && !state.resolutionActive) {
+        state.pendingFocus = { sessionId: focusReq.sessionId, askId: focusReq.askId, attempts: 0 };
+        state.searchFilter = null;
+      }
 
       const sessions: SessionSummary[] = listRes.ok
         ? ((listRes.data?.sessions as SessionSummary[] | undefined) ?? [])
@@ -613,9 +619,16 @@ export function startApp(state: AppState, cleanup: () => void): void {
         })
       : state.sessions;
 
+    // Ensure all sections are expanded so a pending focus target can appear in the tree
+    if (state.pendingFocus) {
+      state.expanded.add('section:running');
+      state.expanded.add('section:done');
+    }
+
     const statusFP = filteredSessions.map(s => `${s.status}:${s.windowAlive}:${s.runningAgentCount}:${s.orphaned ?? false}`).join(',');
     const inboxFP = `${state.aggregateInbox.length}:${state.aggregateInbox.map(i => askIdFromDir(i.dir)).join(',')}`;
     const cacheKey = `${state.expanded.size}:${filteredSessions.length}:${state.selectedSession?.id}:${state.contextFiles.length}:${state.searchFilter}:${statusFP}:${inboxFP}`;
+
     let nodes: TreeNode[];
     if (cacheKey === state.treeCacheKey && state.cachedTreeNodes !== null) {
       nodes = state.cachedTreeNodes;
@@ -648,6 +661,28 @@ export function startApp(state: AppState, cleanup: () => void): void {
     if (prevCursorOnNeedsYou && !onNeedsYou && state.inlineDeck) state.inlineDeck.unmount();
     prevCursorOnNeedsYou = onNeedsYou;
 
+    // Resolve pending deep-link focus request (set by poll() via focus-get)
+    if (state.pendingFocus) {
+      const { askId } = state.pendingFocus;
+      const askPresent = state.aggregateInbox.some(i => askIdFromDir(i.dir) === askId);
+      const nyIdx = nodes.findIndex(n => n.type === 'needs-you-virtual');
+      if (askPresent && nyIdx >= 0) {
+        // Land the deep-linked ask in the center-pane inline deck instead of the
+        // fullscreen resolution takeover: point the cursor at the Needs-You inbox
+        // node, focus the detail pane so the deck owns keys, and record the askId
+        // so the lazy mount opens on it (not the oldest queued ask).
+        state.cursorIndex = nyIdx;
+        state.cursorNodeId = nodes[nyIdx]!.id;
+        state.inlineDeckStartAskId = askId;
+        state.focusPane = 'detail';
+        state.pendingFocus = null;
+        requestRender();
+      } else {
+        state.pendingFocus.attempts++;
+        if (state.pendingFocus.attempts > 25) state.pendingFocus = null;
+      }
+    }
+
     // Derive selectedSessionId from cursor
     // section and needs-you-virtual nodes have sessionId === '' — treat as null
     const rawSessionId = cursorNode?.sessionId;
@@ -673,7 +708,7 @@ export function startApp(state: AppState, cleanup: () => void): void {
       state.focusedStrip = 'roadmap';
     }
 
-    // Override detailMode when cursor is on the virtual fleet-inbox node
+    // Override detailMode when cursor is on the virtual inbox node
     if (cursorNode?.type === 'needs-you-virtual') {
       state.detailMode = 'cross-session-inbox';
     } else if (state.detailMode === 'cross-session-inbox') {

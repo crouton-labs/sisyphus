@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync } from 'node:fs';
 import { basename } from 'node:path';
 import {
   askDecisionsPath, askDir, askEntryDir, askMetaPath, askOutputPath, askProgressPath, askReviewPath, askVisualsDir,
@@ -19,11 +19,13 @@ const ACTIONABLE_KINDS: ReadonlySet<InteractionKind> = new Set([
 const HEARTBEAT_ASKED_BY = 'system:heartbeat';
 const ORPHAN_ASKED_BY = 'system:orphan-handler';
 
-function maybeNotifyOnAskCreated(cwd: string, sessionId: string, meta: AskMeta): void {
+function maybeNotifyOnAskCreated(cwd: string, sessionId: string, meta: AskMeta, suppress = false): void {
   if (process.env.NODE_ENV === 'test' || process.env.SISYPHUS_DISABLE_NOTIFY === '1') return;
   const isActionable = meta.kind !== undefined && ACTIONABLE_KINDS.has(meta.kind);
   const isHeartbeat = meta.askedBy === HEARTBEAT_ASKED_BY;
   if (!isActionable && !isHeartbeat) return;
+  // The in-terminal ask popup already has the user's attention.
+  if (suppress) return;
 
   try {
     const config = loadConfig(cwd);
@@ -48,7 +50,7 @@ export interface CreateAskParams {
   subtitle?: string;
   kind?: InteractionKind;
   orphanTarget?: AskMeta['orphanTarget'];
-  modeTransition?: true;
+  suppressTerminalNotification?: boolean;
 }
 
 export function createAsk(cwd: string, sessionId: string, params: CreateAskParams): AskMeta {
@@ -69,7 +71,6 @@ export function createAsk(cwd: string, sessionId: string, params: CreateAskParam
     ...(params.subtitle !== undefined ? { subtitle: params.subtitle } : {}),
     ...(params.kind !== undefined ? { kind: params.kind } : {}),
     ...(params.orphanTarget !== undefined ? { orphanTarget: params.orphanTarget } : {}),
-    ...(params.modeTransition !== undefined ? { modeTransition: params.modeTransition } : {}),
   };
 
   atomicWrite(askMetaPath(cwd, sessionId, params.askId), JSON.stringify(meta, null, 2));
@@ -79,7 +80,7 @@ export function createAsk(cwd: string, sessionId: string, params: CreateAskParam
     blocking: params.blocking,
     askedAt,
   });
-  maybeNotifyOnAskCreated(cwd, sessionId, meta);
+  maybeNotifyOnAskCreated(cwd, sessionId, meta, params.suppressTerminalNotification === true);
   return meta;
 }
 
@@ -328,6 +329,44 @@ async function maybeAutoResolveAsk(
   } catch {
     // never roll back the deck write
   }
+}
+
+/**
+ * Daemon-recovery hook: a daemon restart invalidates any in-flight ask "claim".
+ * `scanInbox` hides an ask whose `progress.json` is younger than 300s
+ * (`isClaimed`), on the assumption a live resolver owns it. After a restart that
+ * assumption no longer holds — so a partially-answered, still-open ask stays
+ * invisible in the dashboard inbox for up to 5 minutes while the orchestrator
+ * blocks on it. Clear the partial progress for every unresolved ask on recovery
+ * so it re-surfaces immediately as a clean pending ask, and reset its meta back
+ * to `pending` for consistency.
+ *
+ * Safe: `progress.json` is only a resume/crash-recovery copy — a still-live
+ * dashboard editor keeps its typed buffer in memory and re-persists on the next
+ * keystroke, so removing the file doesn't disturb an active edit. Resolved asks
+ * (response.json present) are left untouched. Best-effort throughout: a failed
+ * unlink or meta write must never abort recovery. Returns the count cleared.
+ */
+export async function clearStaleAskClaims(cwd: string, sessionId: string): Promise<number> {
+  let cleared = 0;
+  for (const askId of listAsks(cwd, sessionId)) {
+    const progressPath = askProgressPath(cwd, sessionId, askId);
+    if (!existsSync(progressPath)) continue;
+    if (existsSync(askOutputPath(cwd, sessionId, askId))) continue; // resolved — leave it
+    try {
+      unlinkSync(progressPath);
+    } catch {
+      continue; // couldn't clear — leave meta as-is rather than lie about state
+    }
+    cleared++;
+    const meta = readMeta(cwd, sessionId, askId);
+    if (meta?.status === 'in-progress') {
+      await updateMeta(cwd, sessionId, askId, { status: 'pending', startedAt: undefined }).catch(() => {
+        // meta reset is cosmetic — the unlink already re-surfaced the ask
+      });
+    }
+  }
+  return cleared;
 }
 
 export function listOpenAsksFor(cwd: string, sessionId: string, askedBy: string): PendingAskRef[] {

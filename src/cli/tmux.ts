@@ -48,3 +48,35 @@ export function getCurrentTmuxSessionHome(sessionId: string): string {
   }
 }
 
+/**
+ * Find the project's home tmux session — the non-`ssyph_` session whose
+ * @sisyphus_cwd matches `cwd`. The dashboard lives in the home session; agents
+ * run in `ssyph_` sessions, so callers that want to reach the dashboard must
+ * resolve the home session rather than using their own (agent) session.
+ *
+ * Returns the tmux session $N id (safe for `-t` — names can substring-match the
+ * wrong session under sparse env), or null if no home session is registered.
+ * Mirrors the shell `resolve_home` in tmux-setup.ts.
+ */
+export function findHomeSession(cwd: string): string | null {
+  const normalizedCwd = cwd.replace(/\/+$/, '');
+  let output: string;
+  try {
+    output = execSync('tmux list-sessions -F "#{session_id}|#{session_name}"', {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+  } catch {
+    return null;
+  }
+  for (const line of output.split('\n').filter(Boolean)) {
+    const pipeIdx = line.indexOf('|');
+    if (pipeIdx < 0) continue;
+    const sessId = line.slice(0, pipeIdx);
+    const name = line.slice(pipeIdx + 1);
+    if (name.startsWith('ssyph_')) continue;
+    if (getCurrentTmuxSessionHome(sessId) === normalizedCwd) return sessId;
+  }
+  return null;
+}
+

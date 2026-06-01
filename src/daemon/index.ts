@@ -28,6 +28,7 @@ import {
 } from './segments/index.js';
 import { writeManifest, writeEmptyManifest } from './sessions-manifest.js';
 import { resetAgentCounterFromState } from './agent.js';
+import { clearStaleAskClaims } from './ask-store.js';
 import { orphanOrchestrator } from './orphan-asks.js';
 import { isProcessAlive } from './lib/process.js';
 import { setWindowId, setOrchestratorPaneId, getOrchestratorPaneId } from './orchestrator.js';
@@ -141,6 +142,14 @@ async function recoverOneSession(
 
   registerSessionCwd(sessionId, cwd);
   resetAgentCounterFromState(sessionId, session.agents ?? []);
+
+  // The restart invalidated any in-flight ask claims: clear stale progress.json
+  // so partially-answered asks re-surface in the dashboard immediately rather
+  // than staying hidden behind scanInbox's 300s isClaimed window.
+  const clearedClaims = await clearStaleAskClaims(cwd, sessionId);
+  if (clearedClaims > 0) {
+    console.log(`[sisyphus] Cleared ${clearedClaims} stale ask claim(s) for session ${sessionId} on recovery`);
+  }
 
   if (!session.tmuxSessionName) return true;
 

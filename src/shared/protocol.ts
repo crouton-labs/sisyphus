@@ -34,7 +34,17 @@ export type Request =
   | { type: 'unregister-segment'; id: string }
   | { type: 'ask-generate-visual'; sessionId: string; askId: string; qid: string; cols: number; force?: boolean }
   // Response: { ok: true, data: { items: (InboxItem & { sessionName?: string })[] } }
-  | { type: 'inbox-list' }
+  // `cwd` scopes the inbox to sessions in the requesting dashboard's working
+  // directory — no cross-directory ("fleet") aggregation.
+  | { type: 'inbox-list'; cwd: string }
+  // Deep-link focus: an external process (the `sis ask` triage popup) asks the
+  // dashboard for this cwd to focus a session and open a specific ask. `focus-set`
+  // stores the latest request; `focus-get` consumes-and-clears it so the dashboard
+  // acts exactly once. `cwd` scopes the request to the matching dashboard.
+  // focus-set response: { ok: true }
+  // focus-get response: { ok: true, data: { focus: FocusRequest | null } }
+  | { type: 'focus-set'; cwd: string; sessionId: string; askId: string }
+  | { type: 'focus-get'; cwd: string }
   // Queue (or immediately fire) a cloud handoff. `provider` is resolved via
   // `pickProvider` on the daemon side; `repo` defaults to the local repo basename.
   // Response: { ok: true, data: { queued: boolean, sentAt?: string } }
@@ -47,6 +57,18 @@ export type Request =
   // Finalize a reclaim: mark `handoff.reclaimedAt`. Called by `sis cloud handoff pull`
   // after the rsync down completes and the local orchestrator is respawned.
   | { type: 'cloud-reclaim-finalize'; sessionId: string; cwd: string };
+
+/**
+ * A pending dashboard deep-link focus request. Set by `focus-set`, consumed by
+ * `focus-get`. `requestedAt` (epoch ms) drives TTL expiry so a request set while
+ * no dashboard exists doesn't fire minutes later on an unrelated relaunch.
+ */
+export interface FocusRequest {
+  cwd: string;
+  sessionId: string;
+  askId: string;
+  requestedAt: number;
+}
 
 /**
  * Typed error kinds. Maps to CLI exit codes via `exitForError` (src/cli/errors.ts):

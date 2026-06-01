@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 
 export type Platform = 'darwin' | 'linux' | 'wsl' | 'win32' | 'unknown';
@@ -64,6 +64,31 @@ export function hasCommand(cmd: string): boolean {
     return true;
   } catch {
     cmdCache.set(cmd, false);
+    return false;
+  }
+}
+
+const TERMINAL_APP_NAMES: ReadonlySet<string> = new Set([
+  'iterm2', 'iterm', 'terminal', 'apple_terminal',
+  'alacritty', 'kitty', 'wezterm', 'ghostty', 'hyper', 'warp', 'tmux',
+]);
+
+/**
+ * Best-effort check: returns true if a known terminal emulator is the frontmost
+ * macOS application. Non-darwin or any error → false ("don't suppress / keep banner").
+ * Never throws.
+ */
+export function isTerminalFrontmost(): boolean {
+  if (detectPlatform() !== 'darwin') return false;
+  try {
+    const raw = execFileSync(
+      'osascript',
+      ['-e', 'tell application "System Events" to get name of first application process whose frontmost is true'],
+      { timeout: 1000, stdio: ['ignore', 'pipe', 'ignore'] },
+    );
+    const name = raw.toString().trim().toLowerCase();
+    return TERMINAL_APP_NAMES.has(name);
+  } catch {
     return false;
   }
 }

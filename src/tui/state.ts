@@ -249,6 +249,13 @@ export interface AppState {
   // Review panel — mounted in place of inlineDeck when focused inbox item is kind='review'
   reviewPanel: import('./panels/review-action.js').ReviewActionPanel | null;
 
+  // Deep-link focus — set by poll() when focus-get returns a request, consumed by render()
+  pendingFocus: { sessionId: string; askId: string; attempts: number } | null;
+
+  // One-shot: askId the next inline-deck mount should open on (set by the deep-link
+  // handler so "open in dashboard" lands on the triaged ask, not the oldest queued one)
+  inlineDeckStartAskId: string | null;
+
   // Config
   cwd: string;
 }
@@ -266,7 +273,6 @@ export function createAppState(cwd: string): AppState {
 
   // Seed default-expanded sections (done stays collapsed)
   const expanded = new Set<string>();
-  expanded.add('section:needs-you');
   expanded.add('section:running');
 
   return {
@@ -328,6 +334,8 @@ export function createAppState(cwd: string): AppState {
     inlineDeck: null,
     visuals: new Map(),
     reviewPanel: null,
+    pendingFocus: null,
+    inlineDeckStartAskId: null,
     cwd,
   };
 }

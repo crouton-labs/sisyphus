@@ -38,6 +38,33 @@ export function openDashboardWindow(tmuxSession: string, cwd: string): boolean {
     // Option not set — fall through to create
   }
 
+  // Reconcile: the option may be unset or stale even though a dashboard window
+  // is still alive in this session (option drift). Adopt an existing
+  // "sisyphus-dashboard" window before creating a duplicate. Mirrors the shell
+  // reconciliation in tmux-setup.ts's homeScript.
+  try {
+    const windows = execSync(
+      `tmux list-windows -t ${shellQuote(tmuxSession)} -F "#{window_id} #{window_name}"`,
+      { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] },
+    ).trim();
+    for (const line of windows.split('\n').filter(Boolean)) {
+      const spaceIdx = line.indexOf(' ');
+      if (spaceIdx < 0) continue;
+      const wid = line.slice(0, spaceIdx);
+      const wname = line.slice(spaceIdx + 1);
+      if (wname === 'sisyphus-dashboard') {
+        execSync(
+          `tmux set-option -t ${shellQuote(tmuxSession)} @sisyphus_dashboard ${shellQuote(wid)}`,
+          { stdio: 'pipe' },
+        );
+        execSync(`tmux select-window -t ${shellQuote(wid)}`, { stdio: 'pipe' });
+        return false;
+      }
+    }
+  } catch {
+    // No windows / tmux unhappy — fall through to create
+  }
+
   const tuiPath = join(import.meta.dirname, 'tui.js');
 
   const windowId = execSync(

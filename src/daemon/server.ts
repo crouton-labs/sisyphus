@@ -2,7 +2,7 @@ import { createServer, type Server } from 'node:net';
 import { unlinkSync, existsSync, writeFileSync, readFileSync, mkdirSync, readdirSync, rmSync, chmodSync } from 'node:fs';
 import { socketPath, globalDir, messagesDir, sessionsDir } from '../shared/paths.js';
 import { join, basename, dirname } from 'node:path';
-import type { Request, Response } from '../shared/protocol.js';
+import type { Request, Response, FocusRequest } from '../shared/protocol.js';
 import { errUsage, errNotFound, errAmbiguous, errConflict, errTransient, errPermanent } from '../shared/protocol.js';
 import type { MessageSource } from '../shared/types.js';
 import { validateSessionId, validateRepoName } from '../shared/shell.js';
@@ -39,6 +39,12 @@ interface SessionTracking {
   name?: string;
 }
 const sessionTrackingMap = new Map<string, SessionTracking>();
+
+// Latest dashboard deep-link focus request (last-write-wins, in-memory). Set by
+// `focus-set`, consumed-and-cleared by `focus-get`. Ephemeral — losing it on a
+// daemon restart is fine (the CLI re-fires after relaunching the dashboard).
+let pendingFocus: FocusRequest | null = null;
+const FOCUS_TTL_MS = 30_000;
 
 function registryPath(): string {
   return join(globalDir(), 'session-registry.json');
@@ -821,6 +827,10 @@ async function handleRequest(req: Request): Promise<Response> {
         const reviewItems: InboxItem[] = [];
         for (const [sessionId, tracking] of sessionTrackingMap) {
           if (!tracking.cwd) continue;
+          // Scope to the requesting dashboard's cwd — only this directory's
+          // sessions, never the whole fleet. Mirrors the string-identity cwd
+          // assumption the `list` handler relies on (seenCwds.has(req.cwd)).
+          if (tracking.cwd !== req.cwd) continue;
           askDirs.push(askDir(tracking.cwd, sessionId));
           reviewItems.push(...listReviewInboxItems(tracking.cwd, sessionId));
         }
@@ -847,6 +857,30 @@ async function handleRequest(req: Request): Promise<Response> {
           return { ...item, sessionName };
         });
         return { ok: true, data: { items: itemsWithName as unknown as Record<string, unknown> } };
+      }
+
+      case 'focus-set': {
+        const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+        if (!ID_RE.test(req.askId)) return {
+          ok: false,
+          error: errUsage('invalid_ask_id', { message: `Invalid askId: ${req.askId}`, received: req.askId }),
+        };
+        // sessionId already validated + partial-resolved by the top-level guard.
+        pendingFocus = { cwd: req.cwd, sessionId: req.sessionId, askId: req.askId, requestedAt: Date.now() };
+        return { ok: true };
+      }
+
+      case 'focus-get': {
+        // Consume-and-clear so exactly one dashboard acts on a given request.
+        if (pendingFocus && pendingFocus.cwd === req.cwd) {
+          const captured = pendingFocus;
+          pendingFocus = null;
+          if (Date.now() - captured.requestedAt > FOCUS_TTL_MS) {
+            return { ok: true, data: { focus: null } };
+          }
+          return { ok: true, data: { focus: captured as unknown as Record<string, unknown> } };
+        }
+        return { ok: true, data: { focus: null } };
       }
 
       case 'cloud-handoff': {

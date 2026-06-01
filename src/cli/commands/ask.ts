@@ -11,6 +11,11 @@ import { ORCHESTRATOR_ASKED_BY } from '../../shared/types.js';
 import type { AskOutput, AskStatus, InteractionKind } from '../../shared/types.js';
 import { execSafe } from '../../shared/exec.js';
 import { shellQuote } from '../../shared/shell.js';
+import { rawSend } from '../../shared/client.js';
+import { isTerminalFrontmost } from '../../shared/platform.js';
+import { assertTmux, getTmuxSession, findHomeSession } from '../tmux.js';
+import { openDashboardWindow } from './dashboard.js';
+import { showAskTriagePopup, hasAttachedClient } from './ask-popup.js';
 import { exitUsage } from '../errors.js';
 import { approveDeck, notifyDeck, launchReview, display } from '@crouton-kit/humanloop';
 import type { Deck, FeedbackComment, FeedbackResult } from '@crouton-kit/humanloop';
@@ -571,9 +576,31 @@ function waitForOutput(cwd: string, sessionId: string, askId: string, initialPpi
 }
 
 /**
- * Spawn a tmux pane next to the caller showing the deck so the user can answer
- * inline without leaving the agent's pane. The dashboard inbox remains a valid
- * second surface — both write through the same on-disk ask-store paths.
+ * Bring every attached client to the session/window holding `callerPane` so the
+ * user lands on the agent after picking "Open in agent". Best-effort: any tmux
+ * failure is swallowed (the pane still exists; navigation is a nicety).
+ */
+function focusAgentPane(callerPane: string): void {
+  const sess = execSafe(`tmux display-message -p -t ${shellQuote(callerPane)} "#{session_name}"`)?.trim();
+  const win = execSafe(`tmux display-message -p -t ${shellQuote(callerPane)} "#{window_id}"`)?.trim();
+  if (sess) switchAllClientsToSession(sess);
+  if (win) execSafe(`tmux select-window -t ${shellQuote(win)}`);
+}
+
+/** Switch every attached tmux client to `session`. Best-effort. */
+function switchAllClientsToSession(session: string): void {
+  const clients = execSafe('tmux list-clients -F "#{client_name}"');
+  if (!clients) return;
+  for (const c of clients.split('\n').filter(Boolean)) {
+    execSafe(`tmux switch-client -c ${shellQuote(c)} -t ${shellQuote(session)}`);
+  }
+}
+
+/**
+ * Spawn a focused tmux pane next to the caller showing the deck and navigate the
+ * user there. Called only from the "Open in agent" triage branch. The dashboard
+ * inbox remains a valid second surface — both write through the same on-disk
+ * ask-store paths.
  *
  * No-op outside tmux, when the user opts out, or if the split fails (the
  * dashboard is still a valid answering surface, so we never want to break the
@@ -588,10 +615,11 @@ function maybeSpawnAskPane(cwd: string, sessionId: string, askId: string, kind?:
   const tuiPath = join(import.meta.dirname, 'tui.js');
   const cmd = `node ${shellQuote(tuiPath)} --cwd ${shellQuote(cwd)} --session-id ${shellQuote(sessionId)} --ask ${shellQuote(askId)}`;
 
-  // -d: don't auto-focus the new pane (caller stays focused)
-  // -h: horizontal split (new pane sits to the right)
-  // -t: target the caller's pane so the split is adjacent
-  execSafe(`tmux split-window -d -h -t ${shellQuote(callerPane)} -c ${shellQuote(cwd)} ${shellQuote(cmd)}`);
+  // -h: horizontal split (new pane sits to the right); -t targets the caller's
+  // pane so the split is adjacent. Focus moves to the new pane (no -d), then we
+  // navigate the user's client to the agent's window.
+  execSafe(`tmux split-window -h -t ${shellQuote(callerPane)} -c ${shellQuote(cwd)} ${shellQuote(cmd)}`);
+  focusAgentPane(callerPane);
 }
 
 /**
@@ -614,8 +642,100 @@ function maybeSpawnReviewPane(cwd: string, sessionId: string, askId: string): vo
   const cmd = `node ${shellQuote(cliPath)} ask review open ${shellQuote(askId)} --session ${shellQuote(sessionId)}`;
 
   // -h: horizontal split (editor sits to the right); -t targets the caller's
-  // pane so the split is adjacent. Focus moves to the editor (no -d).
+  // pane so the split is adjacent. Focus moves to the editor (no -d), then we
+  // navigate the user's client to the agent's window.
   execSafe(`tmux split-window -h -t ${shellQuote(callerPane)} -c ${shellQuote(cwd)} ${shellQuote(cmd)}`);
+  focusAgentPane(callerPane);
+}
+
+/** Friendly session label for the triage popup; falls back to the short id. */
+function sessionLabel(cwd: string, sessionId: string): string {
+  try {
+    if (existsSync(statePath(cwd, sessionId))) {
+      const s = state.getSession(cwd, sessionId);
+      if (s.name) return s.name;
+    }
+  } catch { /* fall through to short id */ }
+  return sessionId.slice(0, 8);
+}
+
+/**
+ * Whether the OS banner should be suppressed for this ask: only when a triage
+ * popup will actually show (in tmux, not opted out, a client attached) AND a
+ * terminal is the frontmost app — otherwise the popup and banner double up.
+ * Best-effort; `isTerminalFrontmost` returns false on any detection failure.
+ */
+function shouldSuppressBanner(): boolean {
+  const popupWillShow =
+    !!process.env.TMUX_PANE &&
+    process.env.SISYPHUS_DISABLE_ASK_PANE !== '1' &&
+    hasAttachedClient();
+  return popupWillShow && isTerminalFrontmost();
+}
+
+/**
+ * Show the triage popup for a newly-created blocking ask and route per the
+ * user's choice: dismiss (nothing — ask stays in the dashboard), open in agent
+ * (focused pane next to the agent), or open in dashboard (bring the dashboard to
+ * front, focused on this ask). No-op outside tmux or when opted out — the
+ * dashboard inbox is always a valid answering surface regardless.
+ */
+async function triageAsk(
+  cwd: string, sessionId: string, askId: string, kind: InteractionKind | undefined, title?: string,
+): Promise<void> {
+  const callerPane = process.env.TMUX_PANE;
+  if (!callerPane) return;
+  if (process.env.SISYPHUS_DISABLE_ASK_PANE === '1') return;
+
+  const choice = showAskTriagePopup({
+    askId,
+    sessionLabel: sessionLabel(cwd, sessionId),
+    title: title !== undefined ? title : 'Question pending',
+  });
+
+  if (choice === 'dismiss') return;
+  if (choice === 'agent') {
+    if (kind === 'review') maybeSpawnReviewPane(cwd, sessionId, askId);
+    else maybeSpawnAskPane(cwd, sessionId, askId, kind);
+    return;
+  }
+  await openInDashboard(cwd, sessionId, askId, kind);
+}
+
+/**
+ * Bring the dashboard window to front, focused on this ask. Deck/approval asks
+ * use a daemon focus-request the dashboard consumes on its next poll to open the
+ * resolution panel. Reviews have no resolution panel, so we open the review
+ * editor over the dashboard window (the same command the dashboard's
+ * review-action panel runs). Best-effort — the ask stays in the inbox regardless.
+ *
+ * Targets the project's home session (where an existing dashboard lives), not
+ * the caller's session: asks come from agents running in `ssyph_` sessions, so
+ * using the caller's session would miss the existing dashboard and spawn a
+ * duplicate there. Falls back to the current session when no home is registered.
+ */
+async function openInDashboard(
+  cwd: string, sessionId: string, askId: string, kind?: InteractionKind,
+): Promise<void> {
+  try {
+    assertTmux();
+    const tmuxSession = findHomeSession(cwd) ?? getTmuxSession();
+    if (kind === 'review') {
+      openDashboardWindow(tmuxSession, cwd);
+      switchAllClientsToSession(tmuxSession);
+      const cliPath = join(import.meta.dirname, 'cli.js');
+      const cmd = `node ${shellQuote(cliPath)} ask review open ${shellQuote(askId)} --session ${shellQuote(sessionId)}`;
+      execSafe(`tmux display-popup -E -w 90% -h 90% -d ${shellQuote(cwd)} ${shellQuote(cmd)}`);
+      return;
+    }
+    // deck/approval: set the focus request before launching so a fresh dashboard
+    // picks it up on its first poll; an already-running one gets it on the next.
+    await rawSend({ type: 'focus-set', cwd, sessionId, askId });
+    openDashboardWindow(tmuxSession, cwd);
+    switchAllClientsToSession(tmuxSession);
+  } catch {
+    // dashboard navigation is best-effort; the ask remains in the inbox.
+  }
 }
 
 /**
@@ -638,6 +758,8 @@ async function submitDeck(
   const askId = mintAskId();
 
   const q0 = deck.interactions[0];
+  const askTitle = deck.title !== undefined ? deck.title : q0?.title;
+  const suppressTerminalNotification = blocking ? shouldSuppressBanner() : false;
   createAsk(cwd, sessionId, {
     askId,
     askedBy,
@@ -645,9 +767,10 @@ async function submitDeck(
     pid: process.pid,
     claudeSessionId,
     cwd,
-    title: deck.title !== undefined ? deck.title : q0?.title,
+    title: askTitle,
     subtitle: q0?.subtitle,
     kind: options?.kindOverride !== undefined ? options.kindOverride : q0?.kind,
+    suppressTerminalNotification,
   });
   writeDecisions(cwd, sessionId, askId, deck);
 
@@ -655,7 +778,7 @@ async function submitDeck(
     return { askId };
   }
 
-  maybeSpawnAskPane(cwd, sessionId, askId, q0?.kind);
+  await triageAsk(cwd, sessionId, askId, q0?.kind, askTitle);
 
   const output = await waitForOutput(cwd, sessionId, askId, initialPpid);
   await markAnswered(cwd, sessionId, askId);
@@ -725,6 +848,8 @@ async function submitReview(
   const initialPpid = process.ppid;
   const claudeSessionId = resolveClaudeSessionId(cwd, sessionId, askedBy);
   const askId = mintAskId();
+  const reviewTitle = `Review ${basename(absFile)}`;
+  const suppressTerminalNotification = blocking ? shouldSuppressBanner() : false;
 
   createAsk(cwd, sessionId, {
     askId,
@@ -733,14 +858,15 @@ async function submitReview(
     pid: process.pid,
     claudeSessionId,
     cwd,
-    title: `Review ${basename(absFile)}`,
+    title: reviewTitle,
     kind: 'review',
+    suppressTerminalNotification,
   });
   writeReview(cwd, sessionId, askId, { file: absFile });
 
   if (!blocking) return { askId };
 
-  maybeSpawnReviewPane(cwd, sessionId, askId);
+  await triageAsk(cwd, sessionId, askId, 'review', reviewTitle);
 
   const output = await waitForOutput(cwd, sessionId, askId, initialPpid);
   await markAnswered(cwd, sessionId, askId);
