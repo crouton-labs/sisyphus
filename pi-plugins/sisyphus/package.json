@@ -1,0 +1,12 @@
+{
+  "name": "pi-sisyphus",
+  "version": "0.1.0",
+  "description": "Pi prompt templates for sisyphus multi-agent orchestration.",
+  "keywords": ["pi-package", "sisyphus", "orchestration", "prompt-templates"],
+  "author": "Silas Rhyneer",
+  "license": "MIT",
+  "pi": {
+    "prompts": ["prompts"],
+    "skills": ["skills"]
+  }
+}
