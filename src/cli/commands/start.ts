@@ -44,7 +44,7 @@ function buildStartCommand(target: Command, hidden: boolean): void {
     .command('start', { hidden })
     .description('Start a new sisyphus session')
     .argument('[task]', 'Task description for the orchestrator (omit when using --stdin)')
-    .option('--context <context>', 'Background context for the orchestrator')
+    .option('-c, --context <context>', 'Background context for the orchestrator')
     .option('--name <name>', 'Human-readable name for the session')
     .option('--effort <tier>', 'Pipeline effort tier (low|medium|high|xhigh)')
     .option('--stdin', 'Read the task description from stdin (avoids shell escaping for long prompts)')
@@ -53,9 +53,27 @@ function buildStartCommand(target: Command, hidden: boolean): void {
     .addHelpText('after', `
 session lifecycle start: launch a new orchestrated sisyphus session.
 
+Writing the handoff
+  task          the goal — what to build or fix and what "done" looks like. This is the
+                persistent objective the orchestrator re-reads every cycle; keep it focused.
+  -c/--context  background that informs the work but isn't the goal itself: relevant file
+                paths, constraints, specs, adjacent concerns, prior findings. Rendered
+                apart from the task so the orchestrator references it without conflating it.
+  Keep context factual, not diagnostic — point at files, areas, and constraints; don't
+  speculate on root causes or fixes, which biases the orchestrator down the wrong path.
+
+  Example
+    sis start "Fix the JWT refresh bug — app shows a blank screen on token expiry instead of redirecting to login" -c "Auth system lives in src/auth/. Key files: interceptor.ts (HTTP interceptor), token-store.ts (token persistence), refresh.ts (refresh flow). Tests in src/auth/__tests__/. Don't break the logout flow."
+
+  Long task or context? Pipe via stdin to avoid shell escaping:
+    cat task.md | sis start --stdin -c "short context here"
+    cat ctx.md  | sis start "short task" --context-stdin
+  The same --stdin / --context-stdin pattern exists on \`agent spawn\`, \`orch message\`,
+  \`orch tell\`, \`session resume\`, and agent-side \`agent submit\` / \`agent report\` / \`orch yield\`.
+
 Input
   [task]                    optional positional — task description string; omit when using --stdin or pass \`-\` to read stdin
-  --context <context>       optional — background context injected alongside the task; also readable via --context-stdin
+  -c, --context <context>   optional — background context injected alongside the task; also readable via --context-stdin
   --name <name>             optional — human-readable label for the session
   --effort <tier>           optional — pipeline effort tier: low | medium | high | xhigh
   --stdin                   optional — read task from stdin instead of positional; mutually exclusive with --context-stdin
