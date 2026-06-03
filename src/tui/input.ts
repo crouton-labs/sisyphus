@@ -185,7 +185,7 @@ export function dispatchComposeAction(
       void (async () => {
         try {
           const contRes = await actions.send({ type: 'continue', sessionId: action.sessionId });
-          if (!contRes.ok) { notify(state, `Error: ${contRes.error}`); return; }
+          if (!contRes.ok) { notify(state, `Error: ${typeof contRes.error === 'string' ? contRes.error : contRes.error.message}`); return; }
           actions.sendAndNotify(
             { type: 'resume', sessionId: action.sessionId, cwd: state.cwd, message: content || undefined },
             'Session continued',
@@ -1530,7 +1530,7 @@ function handleNavigateKey(input: string, key: Key, state: AppState, actions: In
         const res = await actions.send({ type: 'set-dangerous-mode', sessionId, enabled: next });
         if (!res.ok) {
           if (state.selectedSession === session) session.dangerousMode = !next;
-          notify(state, `Dangerous mode toggle failed: ${res.error}`);
+          notify(state, `Dangerous mode toggle failed: ${typeof res.error === 'string' ? res.error : res.error.message}`);
           requestRender();
           return;
         }

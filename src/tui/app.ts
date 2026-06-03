@@ -899,7 +899,7 @@ export function startApp(state: AppState, cleanup: () => void): void {
           if (res.ok) {
             notify(state, successMsg);
           } else {
-            const errMsg = res.error ? res.error : 'Unknown error';
+            const errMsg = typeof res.error === 'string' ? res.error : res.error.message;
             notify(state, `Error: ${errMsg}`);
           }
         })
