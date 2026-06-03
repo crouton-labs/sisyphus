@@ -6,7 +6,6 @@
   "author": "Silas Rhyneer",
   "license": "MIT",
   "pi": {
-    "prompts": ["prompts"],
-    "skills": ["skills"]
+    "prompts": ["prompts"]
   }
 }
