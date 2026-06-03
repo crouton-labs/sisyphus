@@ -62,9 +62,9 @@ export function showAskTriagePopup(opts: AskTriageOpts): AskTriageChoice {
       '',
       ...titleLines.map(l => `  ${l}`),
       '',
-      '  [1] Dismiss',
-      '  [2] Open in dashboard',
-      '  [3] Open in agent',
+      '  [a] Answer in agent',
+      '  [d] Answer in dashboard',
+      '  [x] Dismiss',
       '',
       `  (auto-dismiss in ${POPUP_TIMEOUT}s)`,
       '',
@@ -81,9 +81,9 @@ cat <<'__SISYPHUS_ASK_EOF__'
 ${content}__SISYPHUS_ASK_EOF__
 while IFS= read -r -n1 -t ${POPUP_TIMEOUT} k; do
   case "$k" in
-    1|d|D|q|Q|'') printf 'dismiss' > "$RESULT_FILE"; break ;;
-    2|b|B) printf 'dashboard' > "$RESULT_FILE"; break ;;
-    3|a|A) printf 'agent' > "$RESULT_FILE"; break ;;
+    a|A) printf 'agent' > "$RESULT_FILE"; break ;;
+    d|D) printf 'dashboard' > "$RESULT_FILE"; break ;;
+    x|X|q|Q|'') printf 'dismiss' > "$RESULT_FILE"; break ;;
   esac
 done
 if [ ! -f "$RESULT_FILE" ]; then printf 'dismiss' > "$RESULT_FILE"; fi
