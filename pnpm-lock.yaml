@@ -10,10 +10,10 @@ importers:
     dependencies:
       '@crouton-kit/crouter':
         specifier: latest
-        version: 0.3.3
+        version: 0.3.12
       '@crouton-kit/humanloop':
         specifier: latest
-        version: 0.3.11
+        version: 0.3.14
       '@r-cli/sdk':
         specifier: ^1.2.0
         version: 1.3.0
@@ -115,12 +115,12 @@ packages:
   '@cloudflare/workers-types@4.20260517.1':
     resolution: {integrity: sha512-OjavgX6VpYoWlKg2xPgLKIhBeiJvNdwFVK8E1P6hF02wh1oEt1sZpTzbp9kdohprqjXo6UVqs7/AuIH0wxIcbw==}
 
-  '@crouton-kit/crouter@0.3.3':
-    resolution: {integrity: sha512-Qe7w+h/Etp/Hx5FVIF/KZCoudBaPeBSlfdpsnwOxT92Ze64EzU1Z9lRCGy3fHtjNdGhT9jQsV0TfZAO56DD74A==}
+  '@crouton-kit/crouter@0.3.12':
+    resolution: {integrity: sha512-CKJXVRawxwygiXb3dmSM7yyJ+4+BJ3v7ZkF1LFW1VdoDLkb4lrmCk4XReEst3w3t2L8oQLwicnuQOaUswdlSmg==}
     hasBin: true
 
-  '@crouton-kit/humanloop@0.3.11':
-    resolution: {integrity: sha512-GzBHJHSFfs8RaZU4iARdeurqU7TmcAwD0UBNIWpMUvZVN/qUhEv89nw2/7vkirnu13a/NX9fQd5JwSE7XUSVvQ==}
+  '@crouton-kit/humanloop@0.3.14':
+    resolution: {integrity: sha512-O4m1DWmbyMPaHGNUFkvk8qL4tUo5J/5t78NGOVX2yxcMCE104BOt5kLGo2azej+Mr2QTRRGwLYCsKP4PdCeb2w==}
     hasBin: true
 
   '@cspotcode/source-map-support@0.8.1':
@@ -1305,12 +1305,12 @@ snapshots:
 
   '@cloudflare/workers-types@4.20260517.1': {}
 
-  '@crouton-kit/crouter@0.3.3':
+  '@crouton-kit/crouter@0.3.12':
     dependencies:
-      '@crouton-kit/humanloop': 0.3.11
+      '@crouton-kit/humanloop': 0.3.14
       commander: 13.1.0
 
-  '@crouton-kit/humanloop@0.3.11':
+  '@crouton-kit/humanloop@0.3.14':
     dependencies:
       '@r-cli/sdk': 1.3.0
       commander: 13.1.0
