@@ -1,9 +1,10 @@
 ---
-name: operator-memory
-type: playbook
-description: Use right before the operator agent submits its final report. Provides guidance for updating the project-local operator memory at .sisyphus/agent-plugin/skills/operator/ — what to capture, where to put it (SKILL.md vs a new reference file), naming conventions, and what to skip. Defers to `crtr skill show claude-authoring:skills` for generic skill conventions (frontmatter, length budgets, structure).
+kind: skill
+when-and-why-to-read: When the operator agent is about to submit its final report, this skill should be read because it directs how to update the project-local operator memory — what to capture, whether it belongs in SKILL.md or a new reference file, naming conventions, and what to skip.
+short-form: Updating project-local operator memory right before the operator's final report.
+system-prompt-visibility: name
+file-read-visibility: none
 ---
-
 # Updating operator memory
 
 You're about to submit. Spend a minute capturing what the next operator should not have to rediscover.
@@ -53,7 +54,7 @@ Decision rule:
 3. **Keep prose dense.** The next operator pays in tokens for everything you write. If a step is obvious, omit it.
 4. **Register new reference files** by adding a one-line entry to `SKILL.md`'s "Reference files" section so they're discoverable.
 
-For frontmatter, length budgets, and general skill structure rules, invoke `crtr skill show claude-authoring:skills`. Don't reinvent those rules here — this skill only covers operator-specific guidance.
+For frontmatter, length budgets, and general skill structure rules, invoke `crtr memory read claude-authoring/skills`. Don't reinvent those rules here — this skill only covers operator-specific guidance.
 
 ## Examples
 

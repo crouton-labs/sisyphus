@@ -1,3 +1,10 @@
+---
+kind: reference
+when-and-why-to-read: When you are writing or updating strategy.md, this reference should be read because it gives the stage patterns, process shapes, and document format for mapping the shape of the work across stages.
+short-form: Stage patterns and format for authoring strategy.md.
+system-prompt-visibility: none
+file-read-visibility: none
+---
 # Strategy Reference
 
 Reference material for writing and updating strategy.md — the document that maps the shape of the work across stages.

@@ -1,10 +1,10 @@
 ---
-name: problem-plateau-breakers
-type: playbook
-description: >
-  Load when the problem-agent dialogue loop signals the conversation has stalled — repeated circling, user freetext like "different angle" / "going nowhere" / "feels stuck", or the agent senses it has been chasing the same framing for several turns without traction. Provides four breaker-deck shapes (flip, zoom-out, zoom-in, name-tension) and the routing for each. Increments the turn counter and returns control to the dialogue loop.
+kind: skill
+when-and-why-to-read: When the problem-agent dialogue loop has stalled — repeated circling, user freetext like "different angle" or "feels stuck", or the sense of chasing one framing without traction — this skill should be read because it provides four breaker-deck shapes (flip, zoom-out, zoom-in, name-tension) and the routing for each before returning to the dialogue loop.
+short-form: Four breaker-deck shapes for restarting a stalled problem-agent dialogue.
+system-prompt-visibility: name
+file-read-visibility: none
 ---
-
 # Plateau-breaker decks
 
 When the conversation circles, the user wants a *different shape of question*, not another variation of the same one. Pick the breaker whose move matches the stall pattern, issue the deck, then resume the turn loop.

@@ -1,10 +1,10 @@
 ---
-name: perspective-fanout
-type: runbook
-description: >
-  Load when the problem-agent dialogue has produced enough substance to react to but conclusions haven't hardened — typically four or more turns in, with a framing solidifying. Provides the protocol for spawning eight perspective sub-agents in parallel, synthesizing their outputs, and presenting the synthesis back to the user via a render+deck pair. Available only at MEDIUM, HIGH, or XHIGH effort.
+kind: skill
+when-and-why-to-read: When a problem-agent dialogue has produced enough substance to react to but conclusions have not hardened — typically four-plus turns in with a framing solidifying, at MEDIUM effort or above — this skill should be read because it gives the protocol for fanning out eight parallel perspective sub-agents, synthesizing them, and presenting the synthesis back via a render+deck pair.
+short-form: Protocol for spawning eight parallel perspective sub-agents and synthesizing their output.
+system-prompt-visibility: name
+file-read-visibility: none
 ---
-
 # Perspective fanout
 
 Spawn the eight perspective lenses as parallel sub-agents to challenge convergence before the framing locks in. The agents operate from a shared problem statement so their outputs are directly comparable. After they return, synthesize and surface to the user — convergence, surprises, insights — as the seed for the next dialogue turn.

@@ -1,1 +1,0 @@
-- `sis orch yield --mode <mode>` is required on every yield. Pass the current mode to stay in it; pass a different mode to transition. There is no implicit "keep current mode" fallback — the CLI rejects yields without `--mode`.

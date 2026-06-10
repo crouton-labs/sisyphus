@@ -1,15 +1,15 @@
 ---
-name: sisyphus-authoring
-type: playbook
-description: Author new sisyphus agents, sub-agents, hooks, skills, and orchestrator modes. Use when extending sisyphus runtime behavior — adding a domain-specific agent variant, project-level hook, custom orchestrator phase, or shared skill. Covers what to put in each file, why, and which extension to reach for.
-keywords: [sisyphus, custom agent, agent type, sub-agent, hook, orchestrator mode, agent-plugin, extend, authoring, create agent]
+kind: skill
+when-and-why-to-read: When you are extending sisyphus runtime behavior — adding a domain-specific agent variant, a project-level hook, a custom orchestrator mode, or a shared skill — this skill should be read because it covers what goes in each file, why, and which extension surface to reach for.
+short-form: Author new sisyphus agents, sub-agents, hooks, skills, and orchestrator modes.
+system-prompt-visibility: name
+file-read-visibility: none
 ---
-
 # Authoring Sisyphus Extensions
 
 Sisyphus is extended via a layered plugin model that mirrors the bundled `templates/` layout. Project (`.sisyphus/`) and user (`~/.sisyphus/`) directories overlay the bundled defaults; higher layers win on collision.
 
-→ Read the `sisyphus` skill first (`crtr skill read sisyphus`) if you don't already have a mental model of orchestrator/agents/sub-agents/modes.
+→ Read the `sisyphus` skill first (`crtr memory read sisyphus`) if you don't already have a mental model of orchestrator/agents/sub-agents/modes.
 
 ## Extend before you create
 
@@ -30,12 +30,12 @@ The user's example: *"if you wanted an agent for auditing runs and making tweaks
 
 | Surface | Where it goes | What it does | Detailed guide |
 |---|---|---|---|
-| Agent type | `agent-plugin/agents/<name>.md` | Spawnable role with its own prompt, model, sub-agents, hooks | [agents.md](agents.md) |
-| Hook | `agent-plugin/hooks/hooks.json` + `<name>.sh` | Lifecycle gate (PreToolUse, Stop, etc.) bound to one or more agent types | [hooks.md](hooks.md) |
-| Skill | `agent-plugin/skills/<name>/SKILL.md` | On-demand reference an agent opts into via frontmatter | [skills.md](skills.md) |
-| Orchestrator mode | `orchestrator-<name>.md` | A phase the orchestrator can enter; appended to the base prompt | [modes.md](modes.md) |
+| Agent type | `agent-plugin/agents/<name>.md` | Spawnable role with its own prompt, model, sub-agents, hooks | [agents.md](sisyphus-authoring/agents.md) |
+| Hook | `agent-plugin/hooks/hooks.json` + `<name>.sh` | Lifecycle gate (PreToolUse, Stop, etc.) bound to one or more agent types | [hooks.md](sisyphus-authoring/hooks.md) |
+| Skill | `agent-plugin/skills/<name>/SKILL.md` | On-demand reference an agent opts into via frontmatter | [skills.md](sisyphus-authoring/skills.md) |
+| Orchestrator mode | `orchestrator-<name>.md` | A phase the orchestrator can enter; appended to the base prompt | [modes.md](sisyphus-authoring/modes.md) |
 
-Orchestrator-side equivalents (commands, hooks, skills bound to the orchestrator itself) live in `orchestrator-plugin/`. Same shape, different audience — see [modes.md](modes.md).
+Orchestrator-side equivalents (commands, hooks, skills bound to the orchestrator itself) live in `orchestrator-plugin/`. Same shape, different audience — see [modes.md](sisyphus-authoring/modes.md).
 
 ## Layout cheat sheet
 
@@ -60,7 +60,7 @@ Orchestrator-side equivalents (commands, hooks, skills bound to the orchestrator
 templates/                              # bundled — lowest priority, sisyphus repo
 ```
 
-→ Full layer resolution rules (override vs additive, disable lists, JSON merge semantics) in [layout.md](layout.md).
+→ Full layer resolution rules (override vs additive, disable lists, JSON merge semantics) in [layout.md](sisyphus-authoring/layout.md).
 
 ## Authoring style
 
@@ -70,7 +70,7 @@ Sisyphus agent prompts follow a distinct philosophy — **narrow scope, defensiv
 - It explicitly tells the agent when to **stop and report unexpected complexity** rather than push through.
 - It doesn't try to give the agent enough context to make whole-product decisions — that's the orchestrator's role.
 
-→ For the prompt-architecture principles (zones, tone registers, escalation ladder, decision frameworks, positive framing), read `crtr skill read ai/prompting/prompting-effectively`. The crucial sisyphus-specific applications:
+→ For the prompt-architecture principles (zones, tone registers, escalation ladder, decision frameworks, positive framing), read `crtr memory read ai/prompting/prompting-effectively`. The crucial sisyphus-specific applications:
 
 - Agent `.md` body → behavior zone, "You are X" identity, third-person traits, second-person operations.
 - Sub-agent `.md` body → behavior zone, but inherits the parent's identity — describe the *perspective*, not the whole role.
@@ -82,7 +82,7 @@ Sisyphus agent prompts follow a distinct philosophy — **narrow scope, defensiv
 - **Reinventing `plan` or `review`.** Override the prompt or add a sub-agent before forking the type.
 - **Hooks that depend on bundled scripts by name.** The script name `plan-validate.sh` is a bundled implementation detail — if your hook needs to run *alongside* it, register your own script; don't assume the bundled one will exist forever.
 - **Skill content in `agents/<type>.md`.** If guidance is reusable across agent types or sessions, extract it to `skills/<name>/` and have agents opt in. Skill content baked into an agent body is invisible to other agents that could have used it.
-- **Orchestrator modes that duplicate `discovery` or `planning`.** Read [modes.md](modes.md) for what makes a mode genuinely distinct vs. a tweak that should live in the base prompt.
+- **Orchestrator modes that duplicate `discovery` or `planning`.** Read [modes.md](sisyphus-authoring/modes.md) for what makes a mode genuinely distinct vs. a tweak that should live in the base prompt.
 - **Project-local hooks that override bundled scripts silently.** Use the `disable: ["script.sh"]` escape hatch in your manifest if you mean to suppress. A same-named script in the higher layer wins, but reviewers won't know it's a deliberate replacement without the explicit disable.
 - **`.claude/agents/` for sisyphus extensions.** That works for the agent body but won't pick up co-located hooks or skills. For sisyphus-flavored extensions with hooks/skills, use `.sisyphus/agent-plugin/agents/`.
 
@@ -97,8 +97,8 @@ After dropping a new file:
 
 ## Reference files
 
-- [agents.md](agents.md) — agent type frontmatter, sub-agents, prompt structure, when to make a new type vs override
-- [hooks.md](hooks.md) — `hooks.json` schema, event taxonomy, `agentTypes` filter, `condition: non-interactive`, `disable` list, script conventions
-- [skills.md](skills.md) — what an agent-side skill is, how the `skills:` frontmatter field wires it in, when a skill belongs in `agent-plugin/` vs `orchestrator-plugin/`
-- [modes.md](modes.md) — orchestrator modes vs agents, mode discovery, mode-specific content builders, when to author commands instead
-- [layout.md](layout.md) — layer resolution order, override vs additive merge per surface, hooks `disable`, settings shallow-merge, daemon caching
+- [agents.md](sisyphus-authoring/agents.md) — agent type frontmatter, sub-agents, prompt structure, when to make a new type vs override
+- [hooks.md](sisyphus-authoring/hooks.md) — `hooks.json` schema, event taxonomy, `agentTypes` filter, `condition: non-interactive`, `disable` list, script conventions
+- [skills.md](sisyphus-authoring/skills.md) — what an agent-side skill is, how the `skills:` frontmatter field wires it in, when a skill belongs in `agent-plugin/` vs `orchestrator-plugin/`
+- [modes.md](sisyphus-authoring/modes.md) — orchestrator modes vs agents, mode discovery, mode-specific content builders, when to author commands instead
+- [layout.md](sisyphus-authoring/layout.md) — layer resolution order, override vs additive merge per surface, hooks `disable`, settings shallow-merge, daemon caching

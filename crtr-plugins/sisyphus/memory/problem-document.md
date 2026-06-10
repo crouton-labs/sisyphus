@@ -1,10 +1,10 @@
 ---
-name: problem-document
-type: playbook
-description: >
-  Load when ready to draft `context/problem.md` — the thinking artifact that orients downstream agents (spec, plan, implement) to why the work exists. Provides design principles, the section vocabulary to pick from, and an anchor example showing the target style. Use this before writing the draft, not after.
+kind: skill
+when-and-why-to-read: When you are ready to draft context/problem.md — the thinking artifact that orients downstream spec/plan/implement agents to why the work exists — this skill should be read because it supplies the design principles, the section vocabulary to pick from, and an anchor example of the target style.
+short-form: Drafting context/problem.md — the artifact that orients downstream agents to why the work exists.
+system-prompt-visibility: name
+file-read-visibility: none
 ---
-
 # Designing the problem document
 
 The problem document is a **thinking artifact**, not a spec. Its job is to orient downstream agents (spec, plan, implement) to *why* the work exists — what hurts, what's the non-obvious trick, what matters, what's risky — tightly enough that they can read the whole thing in under thirty seconds.

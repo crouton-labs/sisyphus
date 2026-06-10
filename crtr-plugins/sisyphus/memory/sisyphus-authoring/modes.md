@@ -1,3 +1,10 @@
+---
+kind: reference
+when-and-why-to-read: When you are authoring a sisyphus orchestrator mode, this reference should be read because it explains modes versus agents, mode discovery, mode-specific content builders, and when to author commands instead.
+short-form: Authoring orchestrator modes — discovery, content builders, and modes vs agents.
+system-prompt-visibility: none
+file-read-visibility: none
+---
 # Authoring Orchestrator Modes
 
 A mode is an orchestrator phase — a chunk of system-prompt content that gets *appended* to the bundled `orchestrator-base.md` to specialize the orchestrator's thinking for a particular kind of cycle. Bundled modes: `discovery`, `planning`, `impl`, `validation`, `completion`.

@@ -1,6 +1,13 @@
+---
+kind: reference
+when-and-why-to-read: When you are deciding whether to add an agent-side skill in sisyphus and where it belongs, this reference should be read because it explains what an agent-side skill is, how the skills frontmatter field wires it in, and when a skill belongs in agent-plugin versus orchestrator-plugin.
+short-form: What an agent-side sisyphus skill is and how to wire it in via frontmatter.
+system-prompt-visibility: none
+file-read-visibility: none
+---
 # Authoring Skills for Sisyphus Agents
 
-Skills here are *agent-side reference material* — on-demand documentation an agent can pull into context when its work intersects with the skill's domain. They're distinct from user-invocable skills and from the runtime-model `sisyphus` skill (`crtr skill read sisyphus`).
+Skills here are *agent-side reference material* — on-demand documentation an agent can pull into context when its work intersects with the skill's domain. They're distinct from user-invocable skills and from the runtime-model `sisyphus` skill (`crtr memory read sisyphus`).
 
 ## Two layers of skills
 
@@ -79,7 +86,7 @@ Sisyphus skills follow the standard skill-authoring conventions. The most import
 - **Frontmatter `description` drives discovery.** Front-load the trigger keywords. The orchestrator's `{{AGENT_TYPES}}` listing and Claude's skill matcher both lean on it.
 - **Skill markers vs reference markers.** A skill teaches judgment ("when to use," "when not to use"). A reference describes an API. If your SKILL.md reads like a man page, you've written a reference doc.
 
-→ Full guide: read `crtr skill read claude-authoring/skills` for the general skill-authoring conventions (frontmatter fields, progressive disclosure, skill vs reference distinction).
+→ Full guide: read `crtr memory read claude-authoring/skills` for the general skill-authoring conventions (frontmatter fields, progressive disclosure, skill vs reference distinction).
 
 ## Frontmatter for sisyphus skills
 

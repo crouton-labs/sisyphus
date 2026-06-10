@@ -1,10 +1,10 @@
 ---
-name: sisyphus
-type: primer
-description: Runtime mental model, agent boundaries, and workflow patterns for the sisyphus multi-agent orchestration system. Read before reasoning about sessions, diagnosing failures, or authoring sisyphus extensions.
-keywords: [sisyphus, orchestrator, agent, sub-agent, daemon, cycle, mental-model, multi-agent]
+kind: skill
+when-and-why-to-read: When you are about to reason about a sisyphus session, diagnose an orchestration failure, or author a sisyphus extension, this skill should be read because it gives the runtime mental model — orchestrator/agent/sub-agent boundaries, the daemon, cycles, and workflow patterns — that the rest only makes sense against.
+short-form: Runtime mental model and agent boundaries for the sisyphus multi-agent orchestration system.
+system-prompt-visibility: name
+file-read-visibility: none
 ---
-
 # Sisyphus Runtime Model
 
 Sisyphus is a tmux-integrated daemon that orchestrates Claude Code multi-agent workflows. Understanding how it works is essential for reasoning about sessions, diagnosing failures, and making good decisions about how to structure work.

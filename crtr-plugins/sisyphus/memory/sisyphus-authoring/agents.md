@@ -1,3 +1,10 @@
+---
+kind: reference
+when-and-why-to-read: When you are authoring or overriding a sisyphus agent type, this reference should be read because it details the agent .md frontmatter (model, color, hooks, sub-agents, settings), the prompt structure, and when to make a new type versus override a bundled one.
+short-form: Agent-type frontmatter, prompt structure, and new-type-vs-override guidance.
+system-prompt-visibility: none
+file-read-visibility: none
+---
 # Authoring Agent Types
 
 An agent type is a `.md` file the orchestrator can spawn as `sisyphus:<name>`. The frontmatter configures the spawn (model, color, hooks behavior, sub-agents, settings); the body becomes the agent's system prompt.
@@ -79,7 +86,7 @@ The body is the agent's system prompt. Sisyphus agent prompts have a distinct sh
 | Operations | Second person | "When you find a TODO, file:line it in your report." |
 | Hard rules | Imperative | "NEVER edit files in `src/` — your job is observation." |
 
-→ For the full prompt architecture (zones, escalation ladder, when to use procedures vs constraints), read `crtr skill read ai/prompting/prompting-effectively` and `crtr skill read claude-authoring/skills` for general prompt and skill conventions.
+→ For the full prompt architecture (zones, escalation ladder, when to use procedures vs constraints), read `crtr memory read ai/prompting/prompting-effectively` and `crtr memory read claude-authoring/skills` for general prompt and skill conventions.
 
 ### Effort markers
 

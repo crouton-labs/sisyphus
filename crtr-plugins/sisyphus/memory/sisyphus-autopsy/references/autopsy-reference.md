@@ -1,3 +1,10 @@
+---
+kind: reference
+when-and-why-to-read: When you are running a sisyphus autopsy from outside the sisyphus project directory, this reference should be read because it explains how sisyphus orchestrates multi-agent work — the stateless orchestrator, agents in tmux panes, and the on-disk session structure — so you can diagnose a session's history.
+short-form: Sisyphus runtime model for diagnosing a session from outside the project dir.
+system-prompt-visibility: none
+file-read-visibility: none
+---
 # Sisyphus runtime reference (for autopsy)
 
 This reference explains how sisyphus orchestrates multi-agent work so you can diagnose a session's history — including when invoked from outside the sisyphus project directory.

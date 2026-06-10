@@ -1,10 +1,10 @@
 ---
-name: orchestration
-type: playbook
-description: >
-  Task breakdown patterns for sisyphus orchestrator sessions. How to structure tasks, sequence agents, and manage cycles for debugging, feature builds, refactors, and other common workflows. Use when planning orchestration strategy or structuring a multi-agent session.
+kind: skill
+when-and-why-to-read: When you are planning orchestration strategy or structuring a multi-agent sisyphus session, this skill should be read because it supplies the task-breakdown patterns for structuring tasks, sequencing agents, and managing cycles across debugging, feature builds, and refactors.
+short-form: Task-breakdown patterns for structuring sisyphus orchestrator sessions.
+system-prompt-visibility: name
+file-read-visibility: none
 ---
-
 # Orchestration Patterns
 
 How to structure sisyphus sessions for common task types. This skill helps the orchestrator break work into tasks, choose agent types, sequence cycles, and handle failures.
@@ -25,6 +25,6 @@ How to structure sisyphus sessions for common task types. This skill helps the o
 
 Available agent types are listed under **Available Agent Types** in your prompt. Use `--agent-type` with `sis agent spawn`.
 
-For task breakdown patterns per workflow type, see [task-patterns.md](task-patterns.md).
-For end-to-end workflow examples, see [workflow-examples.md](workflow-examples.md).
-For strategy.md authoring — stage patterns, process shapes, format — see [strategy.md](strategy.md).
+For task breakdown patterns per workflow type, see [task-patterns.md](orchestration/task-patterns.md).
+For end-to-end workflow examples, see [workflow-examples.md](orchestration/workflow-examples.md).
+For strategy.md authoring — stage patterns, process shapes, format — see [strategy.md](orchestration/strategy.md).
