@@ -3,14 +3,30 @@ import { Compositor } from './compositor.js';
 
 // ─── Session ordering ──────────────────────────────────────────────────────────
 
+// The session-order file may contain a `---` divider. Names before it are
+// anchored to the FRONT (in listed order); names after it are anchored to the
+// END (in listed order). Sessions in neither list fall in the middle, sorted
+// alphabetically. This lets you pin a session like `crtr` to always render last.
 function orderSessions(sessions: string[], order: string[]): string[] {
-  if (order.length === 0) return [...sessions].sort();
-  const orderMap = new Map(order.map((name, idx) => [name, idx]));
+  const dividerIdx = order.indexOf('---');
+  const front = dividerIdx === -1 ? order : order.slice(0, dividerIdx);
+  const back = dividerIdx === -1 ? [] : order.slice(dividerIdx + 1);
+  const frontMap = new Map(front.map((name, idx) => [name, idx]));
+  const backMap = new Map(back.map((name, idx) => [name, idx]));
+
+  // bucket: 0 = front, 1 = middle (unlisted), 2 = back
+  const rank = (name: string): { bucket: number; idx: number } => {
+    if (frontMap.has(name)) return { bucket: 0, idx: frontMap.get(name)! };
+    if (backMap.has(name)) return { bucket: 2, idx: backMap.get(name)! };
+    return { bucket: 1, idx: 0 };
+  };
+
   return [...sessions].sort((a, b) => {
-    const aIdx = orderMap.get(a) ?? Infinity;
-    const bIdx = orderMap.get(b) ?? Infinity;
-    if (aIdx !== bIdx) return aIdx - bIdx;
-    return a.localeCompare(b);
+    const ra = rank(a);
+    const rb = rank(b);
+    if (ra.bucket !== rb.bucket) return ra.bucket - rb.bucket;
+    if (ra.bucket === 1) return a.localeCompare(b); // middle: alphabetical
+    return ra.idx - rb.idx;                          // front/back: listed order
   });
 }
 

@@ -1,2 +1,1 @@
 - `SegmentOutput.trailingName` must be set to the last session name rendered. The compositor passes it to `renderSectionBoundary()` for the next band's entry arrow — missing it silently breaks the active-session highlight at band boundaries when that session is active.
-- `Compositor.renderSessionBand`: pass `sectionBg` (not `ctx.prevBg`) as the `prevBg` argument — the compositor already drew the cross-band entry arrow; passing actual `prevBg` produces a duplicate arrow before the first session in the band.
