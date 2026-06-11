@@ -1,5 +1,5 @@
 ---
-kind: reference
+kind: knowledge
 when-and-why-to-read: When you are authoring or overriding a sisyphus agent type, this reference should be read because it details the agent .md frontmatter (model, color, hooks, sub-agents, settings), the prompt structure, and when to make a new type versus override a bundled one.
 short-form: Agent-type frontmatter, prompt structure, and new-type-vs-override guidance.
 system-prompt-visibility: none

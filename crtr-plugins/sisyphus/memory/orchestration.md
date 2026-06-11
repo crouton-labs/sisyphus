@@ -1,5 +1,5 @@
 ---
-kind: skill
+kind: knowledge
 when-and-why-to-read: When you are planning orchestration strategy or structuring a multi-agent sisyphus session, this skill should be read because it supplies the task-breakdown patterns for structuring tasks, sequencing agents, and managing cycles across debugging, feature builds, and refactors.
 short-form: Task-breakdown patterns for structuring sisyphus orchestrator sessions.
 system-prompt-visibility: name

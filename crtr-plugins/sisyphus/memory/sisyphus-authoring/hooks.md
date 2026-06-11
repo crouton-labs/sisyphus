@@ -1,5 +1,5 @@
 ---
-kind: reference
+kind: knowledge
 when-and-why-to-read: When you are authoring a sisyphus hook, this reference should be read because it covers the hooks.json schema, the event taxonomy, the agentTypes filter, the disable list, and script conventions for lifecycle gates.
 short-form: hooks.json schema, event taxonomy, and script conventions for sisyphus hooks.
 system-prompt-visibility: none

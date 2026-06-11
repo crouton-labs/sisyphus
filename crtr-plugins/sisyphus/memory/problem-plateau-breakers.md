@@ -1,5 +1,5 @@
 ---
-kind: skill
+kind: knowledge
 when-and-why-to-read: When the problem-agent dialogue loop has stalled — repeated circling, user freetext like "different angle" or "feels stuck", or the sense of chasing one framing without traction — this skill should be read because it provides four breaker-deck shapes (flip, zoom-out, zoom-in, name-tension) and the routing for each before returning to the dialogue loop.
 short-form: Four breaker-deck shapes for restarting a stalled problem-agent dialogue.
 system-prompt-visibility: name

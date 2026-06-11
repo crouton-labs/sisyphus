@@ -1,5 +1,5 @@
 ---
-kind: reference
+kind: knowledge
 when-and-why-to-read: When you are working inside or around a sisyphus multi-agent session — orchestrating a run, authoring an extension, drafting a problem document, or debugging a past session — this index should be read because it routes you to the right sisyphus skill for the phase you are in.
 short-form: Index of the sisyphus orchestration & agent-authoring skill set.
 system-prompt-visibility: name

@@ -1,5 +1,5 @@
 ---
-kind: skill
+kind: knowledge
 when-and-why-to-read: When the operator agent is about to submit its final report, this skill should be read because it directs how to update the project-local operator memory — what to capture, whether it belongs in SKILL.md or a new reference file, naming conventions, and what to skip.
 short-form: Updating project-local operator memory right before the operator's final report.
 system-prompt-visibility: name

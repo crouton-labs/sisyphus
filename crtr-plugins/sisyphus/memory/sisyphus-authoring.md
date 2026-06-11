@@ -1,5 +1,5 @@
 ---
-kind: skill
+kind: knowledge
 when-and-why-to-read: When you are extending sisyphus runtime behavior — adding a domain-specific agent variant, a project-level hook, a custom orchestrator mode, or a shared skill — this skill should be read because it covers what goes in each file, why, and which extension surface to reach for.
 short-form: Author new sisyphus agents, sub-agents, hooks, skills, and orchestrator modes.
 system-prompt-visibility: name

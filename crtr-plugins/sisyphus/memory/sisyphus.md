@@ -1,5 +1,5 @@
 ---
-kind: skill
+kind: knowledge
 when-and-why-to-read: When you are about to reason about a sisyphus session, diagnose an orchestration failure, or author a sisyphus extension, this skill should be read because it gives the runtime mental model — orchestrator/agent/sub-agent boundaries, the daemon, cycles, and workflow patterns — that the rest only makes sense against.
 short-form: Runtime mental model and agent boundaries for the sisyphus multi-agent orchestration system.
 system-prompt-visibility: name

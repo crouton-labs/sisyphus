@@ -1,5 +1,5 @@
 ---
-kind: reference
+kind: knowledge
 when-and-why-to-read: When you need to know which sisyphus extension layer wins for a given surface, this reference should be read because it is the lookup table for layer resolution order and the override-vs-additive merge semantics per surface (agents, hooks, skills, modes, commands, settings).
 short-form: Layer resolution order and per-surface merge semantics for sisyphus extensions.
 system-prompt-visibility: none

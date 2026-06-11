@@ -1,5 +1,5 @@
 ---
-kind: skill
+kind: knowledge
 when-and-why-to-read: When a problem-agent dialogue has produced enough substance to react to but conclusions have not hardened — typically four-plus turns in with a framing solidifying, at MEDIUM effort or above — this skill should be read because it gives the protocol for fanning out eight parallel perspective sub-agents, synthesizing them, and presenting the synthesis back via a render+deck pair.
 short-form: Protocol for spawning eight parallel perspective sub-agents and synthesizing their output.
 system-prompt-visibility: name

@@ -1,5 +1,5 @@
 ---
-kind: reference
+kind: knowledge
 when-and-why-to-read: When you want a concrete model of how the orchestrator sequences cycles end-to-end, this reference should be read because it walks real scenarios showing cycle structure, agent assignments, and path conventions in practice.
 short-form: End-to-end examples of how the orchestrator structures cycles for real scenarios.
 system-prompt-visibility: none

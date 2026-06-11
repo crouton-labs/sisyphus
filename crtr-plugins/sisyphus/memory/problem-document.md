@@ -1,5 +1,5 @@
 ---
-kind: skill
+kind: knowledge
 when-and-why-to-read: When you are ready to draft context/problem.md — the thinking artifact that orients downstream spec/plan/implement agents to why the work exists — this skill should be read because it supplies the design principles, the section vocabulary to pick from, and an anchor example of the target style.
 short-form: Drafting context/problem.md — the artifact that orients downstream agents to why the work exists.
 system-prompt-visibility: name

@@ -1,5 +1,5 @@
 ---
-kind: reference
+kind: knowledge
 when-and-why-to-read: When you are deciding whether to add an agent-side skill in sisyphus and where it belongs, this reference should be read because it explains what an agent-side skill is, how the skills frontmatter field wires it in, and when a skill belongs in agent-plugin versus orchestrator-plugin.
 short-form: What an agent-side sisyphus skill is and how to wire it in via frontmatter.
 system-prompt-visibility: none

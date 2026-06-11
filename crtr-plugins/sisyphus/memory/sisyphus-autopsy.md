@@ -1,5 +1,5 @@
 ---
-kind: skill
+kind: knowledge
 when-and-why-to-read: When you are asked to debug, autopsy, or explain a past sisyphus session — a failure, wasted cycles, a weird decision, a stalled agent, or how it succeeded — this skill should be read because it gives the forensic protocol for reconstructing what each agent could see at every decision point and judging whether their calls were reasonable.
 short-form: Forensic reconstruction and judgment of a past sisyphus multi-agent session.
 system-prompt-visibility: name

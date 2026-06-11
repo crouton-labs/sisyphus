@@ -1,5 +1,5 @@
 ---
-kind: reference
+kind: knowledge
 when-and-why-to-read: When you are authoring a sisyphus orchestrator mode, this reference should be read because it explains modes versus agents, mode discovery, mode-specific content builders, and when to author commands instead.
 short-form: Authoring orchestrator modes — discovery, content builders, and modes vs agents.
 system-prompt-visibility: none

@@ -1,5 +1,5 @@
 ---
-kind: reference
+kind: knowledge
 when-and-why-to-read: When the orchestrator is structuring roadmap.md for a specific workflow type — bug fix, feature build, refactor — this reference should be read because it gives the per-workflow plan structure, agent assignments, cycle sequencing, and failure handling.
 short-form: Per-workflow work-breakdown patterns for structuring roadmap.md.
 system-prompt-visibility: none
