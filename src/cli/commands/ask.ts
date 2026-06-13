@@ -17,7 +17,7 @@ import { assertTmux, getTmuxSession, findHomeSession } from '../tmux.js';
 import { openDashboardWindow } from './dashboard.js';
 import { showAskTriagePopup, hasAttachedClient } from './ask-popup.js';
 import { exitUsage } from '../errors.js';
-import { approveDeck, notifyDeck, launchReview, display } from '@crouton-kit/humanloop';
+import { notifyDeck, launchReview, display } from '@crouton-kit/humanloop';
 import type { Deck, FeedbackComment, FeedbackResult } from '@crouton-kit/humanloop';
 
 const ULID_RE = /^[0-9A-HJKMNP-TV-Z]{26}$/;
@@ -32,10 +32,9 @@ function validateAskId(askId: string): void {
 }
 
 const ROOT_HELP = `
-ask: user-engagement leaves. deck (option picks) | approve (yes/no gate) | notify (FYI) | review (markdown annotation) | state (recovery) | show (display).
+ask: user-engagement leaves. deck (option picks) | notify (FYI) | review (markdown annotation) | state (recovery) | show (display).
 
-  deck submit FILE     Pose 1+ questions with named alternatives.          | use when picking between concrete named paths or bundling decisions
-  approve TITLE        Yes/no gate on a single concrete action. Blocks.    | use when you need explicit consent before a destructive or irreversible step
+  deck submit FILE     Pose 1+ questions with named alternatives.          | use when picking between concrete named paths, a yes/no gate, or bundling decisions
   notify TITLE         Fire-and-forget acknowledgement. Non-blocking.      | use when the user should know something but no answer is needed
   review {sub}         Line-by-line markdown annotation workflow.          | use when surfacing a document for per-line annotation rather than option picking
   state {sub}          Inspect existing ask state.                         | use on recovery only — not the normal path
@@ -63,7 +62,7 @@ DECK DESIGN
   Each option is a concrete forward path. The user picks an option to commit to a direction; each label must name a real path with its tradeoffs spelled out, grounded in *this* codebase or *this* exploration. Reference specifics — file names, framework constraints, prior decisions — not generic descriptions.
 
   Bound option count to 2–4 per interaction.
-    < 2: collapses to yes/no — use \`sis ask approve\` instead.
+    < 2: a bare yes/no gate is a 2-option deck (Yes / No) — author it that way.
     > 4: too granular for the user to weigh — split into two interactions or cut weak options.
 
   Options must be mutually exclusive forward paths. Reject feeling-based prompts ("Happy with this?") and fallback-to-freetext options ("Comment", "Maybe"). If "Reject" is a real path, name what rejecting routes to (back to design? abandon? try a different framing?).
@@ -102,10 +101,9 @@ DECK JSON SCHEMA
                                                          // \$SISYPHUS_SESSION_DIR/context/)
                                                          // and pass a basename like
                                                          // "summary.md".
-    kind?           "decision" | "validation" | "context" | "error" | "notify"
+    kind?           "decision" | "context" | "error" | "notify"
                                                          // display hint for inbox icon/sort:
-                                                         //   decision   — fork in the road
-                                                         //   validation — sign-off on work
+                                                         //   decision   — fork in the road (incl. yes/no sign-off)
                                                          //   context    — background needing response
                                                          //   error      — recovery picker
                                                          //   notify     — use the \`notify\` leaf instead
@@ -137,35 +135,12 @@ Effects
 Exit codes: 0 ok | 2 usage (invalid file, validation error, missing session)
 `;
 
-const APPROVE_HELP = `
-approve: yes/no gate on a single concrete action.
-
-Use when the next step is irreversible and proceeding needs explicit user consent. The \`--body\` should describe the concrete action so the user can judge it without a follow-up question. When nuance matters (yes-but or no-because), use \`sis ask deck submit\` instead.
-
-Same blocking semantics as \`sis ask deck submit\`: orchestrator runs foreground, agent uses run_in_background.
-
-Input
-  <title>             required — action being approved
-  --subtitle <s>      optional — one-line context shown below the title
-  --body <b>          optional — markdown body describing what the user is approving
-  --session <id>      optional — session id (defaults to SISYPHUS_SESSION_ID)
-
-Output (stdout, bare JSON — NOT the standard {ok, data} envelope)
-  { "askId", "approved": boolean, "completedAt", "responses" }
-  on error: stderr diagnostic + non-zero exit
-
-Effects
-  Blocks until the user picks. Creates an ask in the session store, marks it answered on completion.
-
-Exit codes: 0 ok | 2 usage (missing session)
-`;
-
 const NOTIFY_HELP = `
 notify: fire-and-forget acknowledgement to the dashboard.
 
 Non-blocking — returns immediately with { askId } before the user sees it.
 
-Use when the user should know about something (a milestone hit, a finding surfaced, a heads-up before a long-running step) but no answer is needed. When even a minimal answer matters, use \`sis ask approve\`. When picking between paths matters, use \`sis ask deck submit\`. Notifications do not have a return path.
+Use when the user should know about something (a milestone hit, a finding surfaced, a heads-up before a long-running step) but no answer is needed. When even a minimal answer matters (incl. a yes/no gate), use \`sis ask deck submit\`. Notifications do not have a return path.
 
 Input
   <title>             required — notification title
@@ -185,7 +160,7 @@ Exit codes: 0 ok | 2 usage (missing session)
 const REVIEW_BRANCH_HELP = `
 Line-by-line markdown annotation workflow. The agent submits the file; in tmux an editor pane opens next to the agent (also reachable from the dashboard inbox). The user annotates per-line with <Space>c and submits with <Space>s. Multiple open/close cycles are supported — the draft persists until explicitly submitted.
 
-Use when surfacing a document the user should annotate per-line rather than pick options on. For a global yes/no, use \`sis ask approve\`. For named alternatives, use \`sis ask deck submit\`.
+Use when surfacing a document the user should annotate per-line rather than pick options on. For a global yes/no or named alternatives, use \`sis ask deck submit\`.
 
 Branches
   submit <file>      Submit a .md file for review; blocks until the user submits.   | use when you have a markdown document to send for annotation
@@ -359,17 +334,6 @@ export function registerAsk(program: Command): void {
     .addHelpText('after', DECK_SUBMIT_HELP)
     .action(async (file: string, opts: { session?: string }) => {
       await submit(file, opts);
-    });
-
-  ask
-    .command('approve <title>')
-    .description('Yes/no gate on a single concrete action; blocks until answered')
-    .option('--subtitle <s>', 'Optional one-line context shown below the title')
-    .option('--body <b>', 'Markdown body describing the action the user is approving')
-    .option('--session <id>', 'Session id (defaults to SISYPHUS_SESSION_ID)')
-    .addHelpText('after', APPROVE_HELP)
-    .action(async (title: string, opts: { subtitle?: string; body?: string; session?: string }) => {
-      await approve(title, opts);
     });
 
   ask
@@ -805,32 +769,6 @@ async function submit(file: string, opts: { session?: string }): Promise<void> {
   process.stdout.write(JSON.stringify(output) + '\n');
 }
 
-async function approve(
-  title: string,
-  opts: { subtitle?: string; body?: string; session?: string },
-): Promise<void> {
-  const deck = approveDeck(title, {
-    ...(opts.subtitle !== undefined ? { subtitle: opts.subtitle } : {}),
-    ...(opts.body !== undefined ? { body: opts.body } : {}),
-  });
-
-  const { askId, output } = await submitDeck(deck, opts);
-  if (!output) throw new Error('blocking ask returned no output');
-  if (output.kind === 'review') throw new Error('approve returned review output — internal error');
-
-  const approveResponse = output.responses.find(r => r.id === 'approve');
-  const approved = approveResponse?.selectedOptionId === 'yes';
-
-  process.stdout.write(
-    JSON.stringify({
-      askId,
-      approved,
-      completedAt: output.completedAt,
-      responses: output.responses,
-    }) + '\n',
-  );
-}
-
 async function notify(title: string, opts: { body?: string; session?: string }): Promise<void> {
   const deck = notifyDeck(title, opts.body !== undefined ? { body: opts.body } : {});
   const { askId } = await submitDeck(deck, opts, { blocking: false, kindOverride: 'notify' });
@@ -1030,11 +968,10 @@ async function show(
     });
   }
   const windowOpt: 'auto' | 'split' | 'new' = rawWindow !== undefined ? rawWindow as 'auto' | 'split' | 'new' : 'auto';
-  const watch = opts.watch === true;
 
   let paneId: string | undefined;
   try {
-    const r = display(path, { watch, window: windowOpt });
+    const r = display(path, { window: windowOpt });
     paneId = r.paneId;
   } catch (err) {
     // display failures degrade gracefully — never fail the caller (matches crtr human show semantics).

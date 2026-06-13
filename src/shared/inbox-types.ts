@@ -6,7 +6,7 @@ export type { InboxItem } from '@crouton-kit/humanloop';
 
 export function coerceKind(k: InteractionKind | undefined): InteractionKind {
   if (k !== undefined) return k;
-  return 'validation';
+  return 'decision';
 }
 
 /**

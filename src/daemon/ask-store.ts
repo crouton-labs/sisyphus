@@ -13,7 +13,7 @@ import { sendTerminalNotification } from './notify.js';
 import * as state from './state.js';
 
 const ACTIONABLE_KINDS: ReadonlySet<InteractionKind> = new Set([
-  'validation', 'decision', 'context', 'error', 'review',
+  'decision', 'context', 'error', 'review',
 ]);
 
 const HEARTBEAT_ASKED_BY = 'system:heartbeat';
