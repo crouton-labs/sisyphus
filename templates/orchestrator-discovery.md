@@ -25,6 +25,7 @@ If multi-project, do not try to refine the goal as one. Issue a decomposition de
 decomp_deck="$SISYPHUS_SESSION_DIR/context/.ask-discovery-decomp-$(date +%s)-$$.json"
 cat > "$decomp_deck" <<'EOF'
 {
+  "title": "Discovery: split the work",
   "interactions": [{
     "id": "discovery-decomposition",
     "title": "This looks like multiple projects",
@@ -100,6 +101,7 @@ Even when the goal looks provably clear, surface one deck before transitioning o
 confirm_deck="$SISYPHUS_SESSION_DIR/context/.ask-discovery-confirm-$(date +%s)-$$.json"
 cat > "$confirm_deck" <<'EOF'
 {
+  "title": "Discovery: confirm the goal",
   "interactions": [{
     "id": "discovery-clarity-confirm",
     "title": "Read confirms the goal?",

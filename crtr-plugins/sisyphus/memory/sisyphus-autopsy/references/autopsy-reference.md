@@ -67,7 +67,7 @@ Agents submit a `Deck` (JSON file). Disk layout per ask: `<sessionDir>/context/a
 
 ```ts
 interface Deck {
-  title?: string;
+  title: string;                 // non-empty deck-level inbox topic
   source?: { sessionName?: string; askedBy?: string; blockedSince?: string };
   interactions: Interaction[];   // non-empty
 }

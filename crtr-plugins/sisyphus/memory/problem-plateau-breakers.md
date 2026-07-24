@@ -34,6 +34,7 @@ type=flip  # or zoom-out / zoom-in / name-tension
 deck="$SISYPHUS_SESSION_DIR/context/.ask-problem-plateau-${type}-$(date +%s)-$$.json"
 cat > "$deck" <<EOF
 {
+  "title": "Problem plateau breaker",
   "interactions": [{
     "id": "problem-plateau-${type}",
     "title": "Plateau breaker",

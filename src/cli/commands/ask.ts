@@ -83,7 +83,7 @@ INVOCATION
 
 DECK JSON SCHEMA
 
-  { "title"?: string, "interactions": Interaction[] }    // interactions[] non-empty
+  { "title": string, "interactions": Interaction[] }     // title non-empty; interactions[] non-empty
 
   Interaction:
     id              string, /^[A-Za-z0-9_-]+$/, max 64 chars, unique within deck
@@ -645,7 +645,7 @@ function shouldSuppressBanner(): boolean {
  * dashboard inbox is always a valid answering surface regardless.
  */
 async function triageAsk(
-  cwd: string, sessionId: string, askId: string, kind: InteractionKind | undefined, title?: string,
+  cwd: string, sessionId: string, askId: string, kind: InteractionKind | undefined, title: string,
 ): Promise<void> {
   const callerPane = process.env.TMUX_PANE;
   if (!callerPane) return;
@@ -654,7 +654,7 @@ async function triageAsk(
   const choice = showAskTriagePopup({
     askId,
     sessionLabel: sessionLabel(cwd, sessionId),
-    title: title !== undefined ? title : 'Question pending',
+    title,
   });
 
   if (choice === 'dismiss') return;
@@ -722,7 +722,7 @@ async function submitDeck(
   const askId = mintAskId();
 
   const q0 = deck.interactions[0];
-  const askTitle = deck.title !== undefined ? deck.title : q0?.title;
+  const askTitle = deck.title;
   const suppressTerminalNotification = blocking ? shouldSuppressBanner() : false;
   createAsk(cwd, sessionId, {
     askId,

@@ -207,6 +207,7 @@ describe('review ask lifecycle', () => {
       title: 'Pick a path',
     });
     writeDecisions(testDir, sessionId, askId, {
+      title: 'Pick a path',
       interactions: [{ id: 'q1', title: 'Pick a path', kind: 'decision', options: [
         { id: 'a', label: 'A' }, { id: 'b', label: 'B' },
       ] }],

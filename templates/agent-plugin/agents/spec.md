@@ -93,6 +93,7 @@ Track N (1-based) in-process only. For each round:
 deck="$SISYPHUS_SESSION_DIR/context/.ask-spec-q-r${N}-$(date +%s)-$$.json"
 cat > "$deck" <<EOF
 {
+  "title": "Spec: pin down <noun>",
   "interactions": [{
     "id": "stage1-q-r${N}",
     "title": "Pin down <noun>",
@@ -126,6 +127,7 @@ readiness_deck="$SISYPHUS_SESSION_DIR/context/.ask-spec-readiness-$(date +%s)-$$
 # resolved_md (bullet list of confirmed choices), soft_md (unresolved gap or _(none — ready to proceed)_)
 cat > "$readiness_deck" <<EOF
 {
+  "title": "Spec readiness",
   "interactions": [{
     "id": "stage1-readiness",
     "title": "Ready to design?",
@@ -178,6 +180,7 @@ printf '{"path":"%s"}' "$SISYPHUS_SESSION_DIR/context/design.md" | crtr human sh
 signoff_deck="$SISYPHUS_SESSION_DIR/context/.ask-spec-stage1-signoff-$(date +%s)-$$.json"
 cat > "$signoff_deck" <<EOF
 {
+  "title": "Spec: stage 1 design",
   "interactions": [{
     "id": "stage1-signoff",
     "kind": "validation",
@@ -387,6 +390,7 @@ signoff_deck="$SISYPHUS_SESSION_DIR/context/.ask-spec-stage3-signoff-$(date +%s)
 # safe_assumptions_count (integer), bounce_iterations (integer from meta.bounceIterations)
 cat > "$signoff_deck" <<EOF
 {
+  "title": "Spec: final sign-off",
   "interactions": [{
     "id": "stage3-signoff",
     "kind": "validation",

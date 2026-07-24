@@ -455,7 +455,7 @@ export function mountResolutionPanel(
 
     getHeaderInfo() {
       const it = item();
-      const askTitle = currentDeck.title ?? currentDeck.interactions[0]?.title;
+      const askTitle = currentDeck.title;
       const itWithName = it as InboxItem & { sessionName?: string };
       return {
         currentIndex,

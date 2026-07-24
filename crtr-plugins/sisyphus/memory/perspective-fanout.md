@@ -72,6 +72,7 @@ Issue the synthesis deck. No `${var}` shell assignments needed; angle-bracket pl
 synth_deck="$SISYPHUS_SESSION_DIR/context/.ask-problem-synth-$(date +%s)-$$.json"
 cat > "$synth_deck" <<EOF
 {
+  "title": "Perspective synthesis",
   "interactions": [{
     "id": "problem-perspective-synth",
     "title": "Lens synthesis",

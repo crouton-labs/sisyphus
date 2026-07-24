@@ -17,9 +17,16 @@ const baseInteraction = {
 
 function writeDeck(name: string, deck: object): string {
   const path = join(tmp, name);
-  writeFileSync(path, JSON.stringify(deck), 'utf-8');
+  writeFileSync(path, JSON.stringify({ title: 'Test deck', ...deck }), 'utf-8');
   return path;
 }
+
+// deck title is required by humanloop
+it('rejects deck without a title', () => {
+  const path = join(tmp, 'missing-deck-title.json');
+  writeFileSync(path, JSON.stringify({ interactions: [baseInteraction] }), 'utf-8');
+  assert.throws(() => parseDeck(path), /title/);
+});
 
 // recipe §1.5.a — missing title rejected (title is required in v2)
 it('1.5.a: rejects interaction with empty title', () => {

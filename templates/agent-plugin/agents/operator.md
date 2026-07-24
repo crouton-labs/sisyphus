@@ -70,6 +70,7 @@ Pattern (example: before dropping a database):
 deck="$SISYPHUS_SESSION_DIR/context/.ask-drop-db-$(date +%s).json"
 cat > "$deck" <<'EOF'
 {
+  "title": "Confirm database reset",
   "interactions": [{
     "id": "confirm",
     "title": "Drop database?",

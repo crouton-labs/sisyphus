@@ -53,10 +53,11 @@ export interface Interaction {
 }
 ```
 
-`kind` is optional; sisyphus validates against the closed `InteractionKind` set (`src/shared/ask-schema.ts:26`) but humanloop treats it as opaque presentation metadata. Title non-empty (≤4 words is a recipe convention, not a schema constraint).
+`kind` is optional; sisyphus validates against the closed `InteractionKind` set (`src/shared/ask-schema.ts:26`) but humanloop treats it as opaque presentation metadata. Interaction titles are non-empty (≤4 words is a recipe convention, not a schema constraint).
 
 Zod rules:
-- `title` non-empty.
+- Deck `title` required and non-empty.
+- Interaction `title` non-empty.
 - `subtitle` non-empty when present.
 - `body` and `bodyPath` mutually exclusive.
 - `bodyPath` resolves to an existing file; passes `termrender --check` (any non-zero exit = invalid).
@@ -133,7 +134,7 @@ Exit paths:
 ```ts
 // Landed in @crouton-kit/humanloop (src/types.ts)
 export interface Deck {
-  title?: string;
+  title: string;                 // non-empty deck-level inbox topic
   source?: { sessionName?: string; askedBy?: string; blockedSince?: string };
   interactions: Interaction[];
 }

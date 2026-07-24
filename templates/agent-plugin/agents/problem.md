@@ -294,6 +294,7 @@ N=1  # initialize before loop; increment each turn
 turn_deck="$SISYPHUS_SESSION_DIR/context/.ask-problem-turn-r${N}-$(date +%s)-$$.json"
 cat > "$turn_deck" <<EOF
 {
+  "title": "Problem: <noun>",
   "interactions": [{
     "id": "problem-turn-r${N}",
     "title": "<noun>",
@@ -330,6 +331,7 @@ When the posture is **curiosity** (not provocation), the body's `**My take**` li
 signoff_deck="$SISYPHUS_SESSION_DIR/context/.ask-problem-signoff-$(date +%s)-$$.json"
 cat > "$signoff_deck" <<EOF
 {
+  "title": "Problem: sign-off",
   "interactions": [{
     "id": "problem-signoff",
     "kind": "validation",
