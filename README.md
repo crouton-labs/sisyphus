@@ -1,3 +1,14 @@
+# sisyphus — a tmux orchestration daemon that runs Claude Code agents in parallel
+
+![sisyphus](https://raw.githubusercontent.com/crouton-labs/sisyphus/main/assets/banner.svg)
+
+<p align="center">
+  <a href="https://github.com/crouton-labs/sisyphus/actions/workflows/integration-tests.yml"><img alt="ci" src="https://img.shields.io/github/actions/workflow/status/crouton-labs/sisyphus/integration-tests.yml?branch=main&label=ci"></a>
+  <a href="https://www.npmjs.com/package/sisyphi"><img alt="npm" src="https://img.shields.io/npm/v/sisyphi?label=npm"></a>
+  <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D22-339933"></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
+</p>
+
 ```
 ╔═══════════════════════════════════════════════════════╗
 ║ @@@@@@@@@@@@@@@@@@@@@@@@@@@%%%#*++**#%%@@@@@@@@@@@@@@ ║
@@ -25,7 +36,6 @@
 ╚═══════════════════════════════════════════════════════╝
 ```
 
-# sisyphus
 
 A tmux-integrated orchestration daemon for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) multi-agent workflows.
 
