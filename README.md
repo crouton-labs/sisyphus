@@ -462,3 +462,5 @@ sis session delete <session-id> --cwd /path/to/project
 ## License
 
 MIT
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
